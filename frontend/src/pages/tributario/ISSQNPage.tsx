@@ -36,7 +36,8 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import api from '@/services/api';
+import { tributarioService } from '@/services/tributarioService';
+import { estabelecimentoService } from '@/services/estabelecimentoService';
 
 interface ISSQNCalculoData {
   estabelecimento_id: string;
@@ -113,22 +114,16 @@ export function ISSQNPage() {
   const [calculoResultado, setCalculoResultado] = useState<ISSQNCalculoResult | null>(null);
 
   // Buscar estabelecimentos para autocomplete
-  const { data: estabelecimentos, isLoading: isLoadingEstabelecimentos } = useQuery({
+  const { data: estabelecimentosData, isLoading: isLoadingEstabelecimentos } = useQuery({
     queryKey: ['estabelecimentos'],
-    queryFn: async () => {
-      const response = await api.get('/cadastro/estabelecimentos', {
-        params: { skip: 0, limit: 100 },
-      });
-      return response.data.dados || [];
-    },
+    queryFn: () => estabelecimentoService.listar({ pagina: 1, limite: 100 }),
   });
+
+  const estabelecimentos = estabelecimentosData?.itens || [];
 
   // Mutation para calcular ISSQN
   const calcularMutation = useMutation({
-    mutationFn: async (data: ISSQNCalculoData) => {
-      const response = await api.post('/tributario/issqn/calcular', data);
-      return response.data;
-    },
+    mutationFn: (data: ISSQNCalculoData) => tributarioService.calcularISSQN(data),
     onSuccess: (data) => {
       setCalculoResultado(data);
       toast.success('ISSQN calculado com sucesso!');
@@ -140,10 +135,7 @@ export function ISSQNPage() {
 
   // Mutation para declarar ISSQN
   const declararMutation = useMutation({
-    mutationFn: async (data: ISSQNDeclaracaoData) => {
-      const response = await api.post('/tributario/issqn/declarar', data);
-      return response.data;
-    },
+    mutationFn: (data: ISSQNDeclaracaoData) => tributarioService.declararISSQN(data),
     onSuccess: () => {
       toast.success('Declaração de ISSQN enviada com sucesso!');
       // Reset form

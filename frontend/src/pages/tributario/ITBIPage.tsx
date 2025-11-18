@@ -32,7 +32,9 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import api from '@/services/api';
+import { tributarioService } from '@/services/tributarioService';
+import { imovelService } from '@/services/imovelService';
+import { pessoaService } from '@/services/pessoaService';
 
 interface ITBICalculoData {
   imovel_id: string;
@@ -87,33 +89,24 @@ export function ITBIPage() {
   const [calculoResultado, setCalculoResultado] = useState<ITBICalculoResult | null>(null);
 
   // Buscar imóveis para autocomplete
-  const { data: imoveis, isLoading: isLoadingImoveis } = useQuery({
+  const { data: imoveisData, isLoading: isLoadingImoveis } = useQuery({
     queryKey: ['imoveis'],
-    queryFn: async () => {
-      const response = await api.get('/cadastro/imoveis', {
-        params: { skip: 0, limit: 100 },
-      });
-      return response.data.dados || [];
-    },
+    queryFn: () => imovelService.listar({ pagina: 1, limite: 100 }),
   });
 
+  const imoveis = imoveisData?.itens || [];
+
   // Buscar pessoas para autocomplete
-  const { data: pessoas, isLoading: isLoadingPessoas } = useQuery({
+  const { data: pessoasData, isLoading: isLoadingPessoas } = useQuery({
     queryKey: ['pessoas'],
-    queryFn: async () => {
-      const response = await api.get('/cadastro/pessoas', {
-        params: { skip: 0, limit: 100 },
-      });
-      return response.data.dados || [];
-    },
+    queryFn: () => pessoaService.listar({ pagina: 1, limite: 100 }),
   });
+
+  const pessoas = pessoasData?.itens || [];
 
   // Mutation para calcular ITBI
   const calcularMutation = useMutation({
-    mutationFn: async (data: ITBICalculoData) => {
-      const response = await api.post('/tributario/itbi/calcular', data);
-      return response.data;
-    },
+    mutationFn: (data: ITBICalculoData) => tributarioService.calcularITBI(data),
     onSuccess: (data) => {
       setCalculoResultado(data);
       toast.success('ITBI calculado com sucesso!');
@@ -125,10 +118,7 @@ export function ITBIPage() {
 
   // Mutation para emitir guia
   const emitirGuiaMutation = useMutation({
-    mutationFn: async (data: ITBIGuiaData) => {
-      const response = await api.post('/tributario/itbi/emitir-guia', data);
-      return response.data;
-    },
+    mutationFn: (data: ITBIGuiaData) => tributarioService.emitirGuiaITBI(data),
     onSuccess: () => {
       toast.success('Guia de ITBI emitida com sucesso!');
       // Reset form

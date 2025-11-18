@@ -17,6 +17,7 @@ import { ITBIPage } from './pages/tributario/ITBIPage'
 import { ISSQNPage } from './pages/tributario/ISSQNPage'
 import { AliquotasPage } from './pages/configuracoes/AliquotasPage'
 import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
+import { ParcelamentosPage } from './pages/arrecadacao/ParcelamentosPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -47,6 +48,9 @@ function App() {
           <Route path="/tributario/iptu/lancamentos" element={<IPTULancamentosPage />} />
           <Route path="/tributario/itbi" element={<ITBIPage />} />
           <Route path="/tributario/issqn" element={<ISSQNPage />} />
+
+          {/* Arrecadação */}
+          <Route path="/arrecadacao/parcelamentos" element={<ParcelamentosPage />} />
 
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />

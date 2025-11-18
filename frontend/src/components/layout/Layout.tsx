@@ -12,6 +12,11 @@ import {
   Receipt as ReceiptIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
+  Business as BusinessIcon,
+  Payment as PaymentIcon,
+  Settings as SettingsIcon,
+  ExpandLess,
+  ExpandMore,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -43,9 +48,12 @@ export function Layout({ children }: LayoutProps) {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Pessoas', icon: <PeopleIcon />, path: '/cadastro/pessoas' },
     { text: 'Imóveis', icon: <HomeIcon />, path: '/cadastro/imoveis' },
+    { text: 'Estabelecimentos', icon: <BusinessIcon />, path: '/cadastro/estabelecimentos' },
     { text: 'Calcular IPTU', icon: <AssignmentIcon />, path: '/tributario/iptu/calcular' },
     { text: 'ITBI', icon: <DescriptionIcon />, path: '/tributario/itbi' },
     { text: 'ISSQN', icon: <ReceiptIcon />, path: '/tributario/issqn' },
+    { text: 'Parcelamentos', icon: <PaymentIcon />, path: '/arrecadacao/parcelamentos' },
+    { text: 'Alíquotas', icon: <SettingsIcon />, path: '/configuracoes/aliquotas' },
   ]
 
   const drawer = (
