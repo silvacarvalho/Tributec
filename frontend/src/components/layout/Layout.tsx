@@ -17,6 +17,7 @@ import {
   Settings as SettingsIcon,
   ExpandLess,
   ExpandMore,
+  Email as EmailIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -53,6 +54,7 @@ export function Layout({ children }: LayoutProps) {
     { text: 'ITBI', icon: <DescriptionIcon />, path: '/tributario/itbi' },
     { text: 'ISSQN', icon: <ReceiptIcon />, path: '/tributario/issqn' },
     { text: 'Parcelamentos', icon: <PaymentIcon />, path: '/arrecadacao/parcelamentos' },
+    { text: 'DTD', icon: <EmailIcon />, path: '/admin/dtd' },
     { text: 'Alíquotas', icon: <SettingsIcon />, path: '/configuracoes/aliquotas' },
   ]
 

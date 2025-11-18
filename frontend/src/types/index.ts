@@ -3,6 +3,7 @@
 export * from './auth'
 export * from './cadastro'
 export * from './tributario'
+export * from './dtd'
 
 // Tipos comuns/compartilhados
 

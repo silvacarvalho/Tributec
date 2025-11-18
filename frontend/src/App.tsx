@@ -18,6 +18,8 @@ import { ISSQNPage } from './pages/tributario/ISSQNPage'
 import { AliquotasPage } from './pages/configuracoes/AliquotasPage'
 import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
 import { ParcelamentosPage } from './pages/arrecadacao/ParcelamentosPage'
+import { DTDListPage } from './pages/admin/DTDListPage'
+import { DTDMensagensPage } from './pages/contribuinte/DTDMensagensPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -55,6 +57,10 @@ function App() {
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />
           <Route path="/configuracoes/isencoes" element={<IsencoesPage />} />
+
+          {/* DTD - Domicílio Tributário Digital */}
+          <Route path="/admin/dtd" element={<DTDListPage />} />
+          <Route path="/admin/dtd/:dtdId/mensagens" element={<DTDMensagensPage />} />
 
           {/* Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
