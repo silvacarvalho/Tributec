@@ -412,6 +412,34 @@ class DTDMensagem(ModeloBase):
     )
 
 
+class TokenBlacklist(ModeloBase):
+    """
+    Blacklist de Tokens JWT
+    Tokens invalidados (logout) antes da expiração natural
+    """
+    __tablename__ = "admin.token_blacklist"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Token JWT
+    token = Column(Text, nullable=False, unique=True, index=True)
+
+    # Data de adição à blacklist
+    data_adicao = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Data de expiração do token
+    expira_em = Column(DateTime, nullable=False, index=True)
+
+    # Motivo (opcional)
+    motivo = Column(String(200), comment="Motivo da invalidação (opcional)")
+
+    __table_args__ = (
+        Index("idx_token_blacklist_token", "token"),
+        Index("idx_token_blacklist_expira", "expira_em"),
+        {"schema": "admin"}
+    )
+
+
 class AuditoriaLog(ModeloBase):
     """
     Log de Auditoria

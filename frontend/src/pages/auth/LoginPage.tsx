@@ -21,23 +21,32 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await api.post('/auth/login', { email, senha })
-      const { access_token, refresh_token } = response.data
+      // Fazer login
+      const loginResponse = await api.post('/auth/login', { email, senha })
+      const { access_token, refresh_token } = loginResponse.data
 
-      // Mock user data (em produção, viria do backend)
+      // Buscar dados do usuário
+      const userResponse = await api.get('/auth/me', {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      })
+
+      const userData = userResponse.data.dados || userResponse.data
       const user = {
-        id: '1',
-        email,
-        nome: email.split('@')[0],
-        perfis: ['ADMIN'],
+        id: userData.id,
+        email: userData.email,
+        nome: userData.nome_completo || userData.username,
+        perfis: userData.perfis || [],
       }
 
       login(user, access_token, refresh_token)
       toast.success('Login realizado com sucesso!')
       navigate('/')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao fazer login')
-      toast.error('Erro ao fazer login')
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || 'Erro ao fazer login'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
