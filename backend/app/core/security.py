@@ -125,3 +125,78 @@ def decodificar_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+# =====================================================
+# DEPENDENCIES PARA AUTENTICAÇÃO
+# =====================================================
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from app.db.base import get_db
+
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """
+    Dependency para obter o usuário atual autenticado a partir do token JWT
+    """
+    token = credentials.credentials
+    payload = decodificar_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido ou expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    usuario_id: str = payload.get("sub")
+    if usuario_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Não foi possível validar as credenciais",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Aqui você buscaria o usuário no banco de dados
+    # from app.models.admin import Usuario
+    # usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    # if usuario is None or not usuario.ativo:
+    #     raise HTTPException(status_code=401, detail="Usuário inválido ou inativo")
+    # return usuario
+
+    # Por enquanto, retorna apenas os dados do payload
+    return {
+        "id": usuario_id,
+        "email": payload.get("email"),
+        "perfis": payload.get("perfis", [])
+    }
+
+
+def verificar_permissoes(permissoes_necessarias: list[str]):
+    """
+    Dependency factory para verificar se o usuário tem as permissões necessárias
+    """
+    async def verificar(usuario: dict = Depends(get_current_user)):
+        usuario_perfis = usuario.get("perfis", [])
+
+        # Admin tem todas as permissões
+        if "ADMIN" in usuario_perfis:
+            return usuario
+
+        # Verificar se tem alguma das permissões necessárias
+        if not any(perm in usuario_perfis for perm in permissoes_necessarias):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Sem permissão para acessar este recurso"
+            )
+
+        return usuario
+
+    return verificar

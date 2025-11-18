@@ -48,11 +48,15 @@ async def health_check():
     }
 
 
-# TODO: Importar e incluir routers dos módulos
-# from app.api import cadastros, tributario, arrecadacao, ...
-# app.include_router(cadastros.router)
-# app.include_router(tributario.router)
-# ...
+# Importar routers
+from app.api.auth import router as auth_router
+from app.api.cadastro import router as cadastro_router
+from app.api.tributario import router as tributario_router
+
+# Incluir routers na aplicação
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(cadastro_router, prefix="/api/v1")
+app.include_router(tributario_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
