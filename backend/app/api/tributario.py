@@ -113,23 +113,25 @@ async def lancar_iptu(
     """
     Realiza o lançamento de IPTU de um imóvel
     """
-    # TODO: Implementar lançamento de IPTU
-    # from app.services.calculo_tributario import CalculadoraIPTU
-    # from app.models.tributario import IPTULancamento
-    # calculadora = CalculadoraIPTU(db)
-    # lancamento_criado = calculadora.lancar_iptu(lancamento)
-    # return lancamento_criado
+    from app.services.lancamento_service import IPTULancamentoService
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    service = IPTULancamentoService(db)
+    lancamento_criado = service.lancar_iptu(
+        imovel_id=lancamento.imovel_id,
+        ano_exercicio=lancamento.ano_exercicio,
+        numero_parcelas=lancamento.numero_parcelas or 10,
+        pagamento_unico=lancamento.pagamento_unico or False,
+        iptu_digital=lancamento.iptu_digital or False
     )
+
+    return lancamento_criado
 
 
 @router.post("/iptu/lançamento-em-lote/{ano_exercicio}", response_model=ResponseBase)
 async def lancar_iptu_em_lote(
     ano_exercicio: int,
     setor_fiscal_id: int = Query(default=None, description="Filtrar por setor fiscal"),
+    limite: int = Query(default=1000, le=5000, description="Limite de imóveis por vez"),
     db: Session = Depends(get_db),
     usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
 ):
@@ -137,13 +139,19 @@ async def lancar_iptu_em_lote(
     Realiza o lançamento de IPTU em lote para um exercício
     Pode filtrar por setor fiscal
     """
-    # TODO: Implementar lançamento em lote (tarefa assíncrona com Celery)
-    # from app.tasks.tributario import lancar_iptu_lote
-    # task = lancar_iptu_lote.delay(ano_exercicio, setor_fiscal_id)
+    from app.services.lancamento_service import IPTULancamentoService
+
+    service = IPTULancamentoService(db)
+    resultado = service.lancar_iptu_em_lote(
+        ano_exercicio=ano_exercicio,
+        setor_fiscal_id=setor_fiscal_id,
+        limite=limite
+    )
 
     return ResponseBase(
         sucesso=True,
-        mensagem=f"Lançamento em lote de IPTU {ano_exercicio} iniciado. Acompanhe o progresso no painel."
+        mensagem=f"Lançamento em lote concluído. Processados: {resultado['total_processado']}, Sucessos: {resultado['sucessos']}, Erros: {resultado['erros']}",
+        dados=resultado
     )
 
 
@@ -159,8 +167,17 @@ async def listar_lancamentos_iptu(
     """
     Lista lançamentos de IPTU com filtros
     """
-    # TODO: Implementar listagem
-    return []
+    from app.services.lancamento_service import IPTULancamentoService
+
+    service = IPTULancamentoService(db)
+    lancamentos = service.listar_lancamentos(
+        ano_exercicio=ano_exercicio,
+        skip=skip,
+        limit=limit,
+        status=status
+    )
+
+    return lancamentos
 
 
 @router.get("/iptu/lancamentos/{lancamento_id}", response_model=IPTULancamentoResponse)
@@ -172,11 +189,12 @@ async def obter_lancamento_iptu(
     """
     Obtém detalhes de um lançamento de IPTU
     """
-    # TODO: Implementar busca
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.lancamento_service import IPTULancamentoService
+
+    service = IPTULancamentoService(db)
+    lancamento = service.obter_lancamento_por_id(lancamento_id)
+
+    return lancamento
 
 
 @router.get("/iptu/lancamentos/{lancamento_id}/parcelas", response_model=List[IPTUParcelaResponse])
@@ -188,8 +206,12 @@ async def listar_parcelas_iptu(
     """
     Lista parcelas de um lançamento de IPTU
     """
-    # TODO: Implementar listagem de parcelas
-    return []
+    from app.services.lancamento_service import IPTULancamentoService
+
+    service = IPTULancamentoService(db)
+    parcelas = service.obter_parcelas(lancamento_id)
+
+    return parcelas
 
 
 # =====================================================

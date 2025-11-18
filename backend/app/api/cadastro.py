@@ -263,11 +263,12 @@ async def atualizar_imovel(
     """
     Atualiza dados de um imóvel
     """
-    # TODO: Implementar atualização
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    imovel = service.atualizar(imovel_id, imovel_update)
+
+    return imovel
 
 
 # =====================================================
@@ -283,11 +284,12 @@ async def criar_estabelecimento(
     """
     Cria um novo cadastro de estabelecimento (CCM)
     """
-    # TODO: Implementar criação de estabelecimento
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    novo_estabelecimento = service.criar(estabelecimento)
+
+    return novo_estabelecimento
 
 
 @router.get("/estabelecimentos", response_model=List[EstabelecimentoResponse])
@@ -301,8 +303,16 @@ async def listar_estabelecimentos(
     """
     Lista estabelecimentos cadastrados
     """
-    # TODO: Implementar listagem
-    return []
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    estabelecimentos = service.listar(
+        skip=skip,
+        limit=limit,
+        regime_issqn=regime_issqn
+    )
+
+    return estabelecimentos
 
 
 @router.get("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse)
@@ -314,11 +324,12 @@ async def obter_estabelecimento(
     """
     Obtém detalhes de um estabelecimento
     """
-    # TODO: Implementar busca
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    estabelecimento = service.obter_por_id(estabelecimento_id)
+
+    return estabelecimento
 
 
 # =====================================================
@@ -334,11 +345,12 @@ async def criar_logradouro(
     """
     Cria um novo logradouro
     """
-    # TODO: Implementar criação de logradouro
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    novo_logradouro = service.criar(logradouro)
+
+    return novo_logradouro
 
 
 @router.get("/logradouros", response_model=List[LogradouroResponse])
@@ -353,5 +365,14 @@ async def listar_logradouros(
     """
     Lista logradouros cadastrados
     """
-    # TODO: Implementar listagem
-    return []
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    logradouros = service.listar(
+        skip=skip,
+        limit=limit,
+        nome=nome,
+        bairro=bairro
+    )
+
+    return logradouros
