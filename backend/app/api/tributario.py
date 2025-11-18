@@ -214,6 +214,111 @@ async def listar_parcelas_iptu(
     return parcelas
 
 
+@router.put("/iptu/lancamentos/{lancamento_id}/corrigir", response_model=IPTULancamentoResponse)
+async def corrigir_lancamento_iptu(
+    lancamento_id: UUID,
+    valor_iptu: Decimal = Query(..., description="Novo valor do IPTU"),
+    valor_liquido: Decimal = Query(..., description="Novo valor líquido"),
+    motivo: str = Query(..., description="Motivo da correção"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Corrige valores de um lançamento de IPTU
+
+    Permite ajustar valores antes do pagamento.
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import IPTULancamento, StatusLancamento
+
+    lancamento = db.query(IPTULancamento).filter(
+        IPTULancamento.id == lancamento_id
+    ).first()
+
+    if not lancamento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lançamento de IPTU não encontrado"
+        )
+
+    # Não permitir correção de lançamentos já pagos ou cancelados
+    if lancamento.status in [StatusLancamento.PAGO, StatusLancamento.CANCELADO]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Não é possível corrigir lançamento com status {lancamento.status}"
+        )
+
+    # Atualizar valores
+    lancamento.valor_iptu = valor_iptu
+    lancamento.valor_liquido = valor_liquido
+
+    # Recalcular parcelas se houver
+    if lancamento.numero_parcelas > 1 and lancamento.parcelas:
+        valor_parcela = valor_liquido / lancamento.numero_parcelas
+        for parcela in lancamento.parcelas:
+            if not parcela.pago:
+                parcela.valor_principal = valor_parcela
+                parcela.valor_total = valor_parcela
+        lancamento.valor_parcela = valor_parcela
+
+    # Registrar correção nas observações
+    if lancamento.observacoes:
+        lancamento.observacoes += f"\n[{date.today()}] Correção: {motivo} (por {usuario['nome']})"
+    else:
+        lancamento.observacoes = f"[{date.today()}] Correção: {motivo} (por {usuario['nome']})"
+
+    db.commit()
+    db.refresh(lancamento)
+
+    return lancamento
+
+
+@router.put("/iptu/lancamentos/{lancamento_id}/cancelar", response_model=IPTULancamentoResponse)
+async def cancelar_lancamento_iptu(
+    lancamento_id: UUID,
+    motivo: str = Query(..., description="Motivo do cancelamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Cancela um lançamento de IPTU
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import IPTULancamento, StatusLancamento
+
+    lancamento = db.query(IPTULancamento).filter(
+        IPTULancamento.id == lancamento_id
+    ).first()
+
+    if not lancamento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lançamento de IPTU não encontrado"
+        )
+
+    # Não permitir cancelamento de lançamentos já pagos
+    if lancamento.status == StatusLancamento.PAGO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar lançamento já pago"
+        )
+
+    # Cancelar lançamento
+    lancamento.status = StatusLancamento.CANCELADO
+
+    # Registrar motivo
+    if lancamento.observacoes:
+        lancamento.observacoes += f"\n[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+    else:
+        lancamento.observacoes = f"[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+
+    db.commit()
+    db.refresh(lancamento)
+
+    return lancamento
+
+
 # =====================================================
 # ITBI - IMPOSTO SOBRE TRANSMISSÃO DE BENS IMÓVEIS
 # =====================================================
@@ -445,6 +550,125 @@ async def registrar_pagamento_itbi(
     guia.data_pagamento = data_pagamento
     guia.valor_pago = valor_pago
     guia.status = StatusLancamento.PAGO
+
+    db.commit()
+    db.refresh(guia)
+
+    return guia
+
+
+@router.put("/itbi/guias/{guia_id}/cancelar", response_model=ITBIGuiaResponse)
+async def cancelar_guia_itbi(
+    guia_id: UUID,
+    motivo: str = Query(..., description="Motivo do cancelamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Cancela uma guia de ITBI
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import ITBIGuia, StatusLancamento
+
+    guia = db.query(ITBIGuia).filter(ITBIGuia.id == guia_id).first()
+
+    if not guia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guia de ITBI não encontrada"
+        )
+
+    # Não permitir cancelamento de guias já pagas ou registradas
+    if guia.pago:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar guia já paga"
+        )
+
+    if guia.registrado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar guia já registrada em cartório"
+        )
+
+    # Cancelar guia
+    guia.status = StatusLancamento.CANCELADO
+
+    # Registrar motivo
+    if guia.observacoes:
+        guia.observacoes += f"\n[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+    else:
+        guia.observacoes = f"[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+
+    db.commit()
+    db.refresh(guia)
+
+    return guia
+
+
+@router.put("/itbi/guias/{guia_id}/arbitrar", response_model=ITBIGuiaResponse)
+async def arbitrar_valor_itbi(
+    guia_id: UUID,
+    valor_arbitrado: Decimal = Query(..., description="Valor arbitrado pela fiscalização"),
+    motivo: str = Query(..., description="Motivo do arbitramento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Arbitra o valor de uma guia de ITBI
+
+    Usado quando o valor declarado é suspeito de subfaturamento.
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import ITBIGuia
+    from app.services.calculo_tributario import CalculadoraITBI
+    from datetime import datetime
+
+    guia = db.query(ITBIGuia).filter(ITBIGuia.id == guia_id).first()
+
+    if not guia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guia de ITBI não encontrada"
+        )
+
+    if guia.pago:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível arbitrar guia já paga"
+        )
+
+    # Recalcular ITBI com valor arbitrado
+    ano_atual = datetime.now().year
+    calculadora = CalculadoraITBI(db, ano_atual)
+
+    resultado = calculadora.calcular(
+        valor_declarado=valor_arbitrado,  # Usar valor arbitrado
+        valor_venal=guia.valor_venal,
+        valor_financiado_sfh=guia.valor_financiado_sfh,
+        imovel_id=str(guia.imovel_id),
+        beneficiario_id=str(guia.adquirente_id)
+    )
+
+    # Atualizar guia
+    guia.arbitrado = True
+    guia.data_arbitramento = date.today()
+    guia.valor_arbitrado = valor_arbitrado
+    guia.fiscal_arbitrador_id = usuario["id"]
+
+    # Atualizar valores da guia com o novo cálculo
+    guia.valor_base_calculo = Decimal(str(resultado["base_calculo"]))
+    guia.valor_itbi_sfh = Decimal(str(resultado["itbi_sfh"]))
+    guia.valor_itbi_normal = Decimal(str(resultado["itbi_normal"]))
+    guia.valor_itbi_total = Decimal(str(resultado["itbi_total"]))
+    guia.valor_liquido = Decimal(str(resultado["valor_liquido"]))
+
+    # Registrar arbitramento
+    if guia.observacoes:
+        guia.observacoes += f"\n[{date.today()}] Arbitrado: {motivo} - Valor arbitrado: R$ {valor_arbitrado:.2f} (por {usuario['nome']})"
+    else:
+        guia.observacoes = f"[{date.today()}] Arbitrado: {motivo} - Valor arbitrado: R$ {valor_arbitrado:.2f} (por {usuario['nome']})"
 
     db.commit()
     db.refresh(guia)
@@ -773,6 +997,121 @@ async def registrar_pagamento_issqn(
     return declaracao
 
 
+@router.put("/issqn/declaracoes/{declaracao_id}/retificar", response_model=ISSQNDeclaracaoResponse)
+async def retificar_declaracao_issqn(
+    declaracao_id: UUID,
+    receita_bruta_total: Decimal = Query(..., description="Nova receita bruta"),
+    deducoes_materiais: Decimal = Query(default=Decimal("0.00"), description="Deduções de materiais"),
+    outras_deducoes: Decimal = Query(default=Decimal("0.00"), description="Outras deduções"),
+    valor_retido_terceiros: Decimal = Query(default=Decimal("0.00"), description="Valor retido por terceiros"),
+    motivo: str = Query(..., description="Motivo da retificação"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Retifica uma declaração de ISSQN
+
+    Permite corrigir valores antes do pagamento.
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import ISSQNDeclaracao, StatusLancamento
+    from app.services.calculo_tributario import CalculadoraISSQN
+    from datetime import datetime
+
+    declaracao = db.query(ISSQNDeclaracao).filter(
+        ISSQNDeclaracao.id == declaracao_id
+    ).first()
+
+    if not declaracao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Declaração de ISSQN não encontrada"
+        )
+
+    # Não permitir retificação de declarações pagas ou canceladas
+    if declaracao.status in [StatusLancamento.PAGO, StatusLancamento.CANCELADO]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Não é possível retificar declaração com status {declaracao.status}"
+        )
+
+    # Recalcular ISSQN
+    ano_atual = datetime.now().year
+    calculadora = CalculadoraISSQN(db, ano_atual)
+
+    resultado = calculadora.calcular_regime_normal(
+        receita_bruta=receita_bruta_total,
+        deducoes_permitidas=deducoes_materiais + outras_deducoes,
+        estabelecimento_id=str(declaracao.estabelecimento_id)
+    )
+
+    # Atualizar valores
+    declaracao.receita_bruta_total = receita_bruta_total
+    declaracao.deducoes_materiais = deducoes_materiais
+    declaracao.outras_deducoes = outras_deducoes
+    declaracao.base_calculo = Decimal(str(resultado["base_calculo"]))
+    declaracao.valor_issqn = Decimal(str(resultado["issqn"]))
+    declaracao.valor_retido_terceiros = valor_retido_terceiros
+    declaracao.valor_a_recolher = declaracao.valor_issqn - valor_retido_terceiros
+
+    # Registrar retificação
+    if declaracao.observacoes:
+        declaracao.observacoes += f"\n[{date.today()}] Retificado: {motivo} (por {usuario['nome']})"
+    else:
+        declaracao.observacoes = f"[{date.today()}] Retificado: {motivo} (por {usuario['nome']})"
+
+    db.commit()
+    db.refresh(declaracao)
+
+    return declaracao
+
+
+@router.put("/issqn/declaracoes/{declaracao_id}/cancelar", response_model=ISSQNDeclaracaoResponse)
+async def cancelar_declaracao_issqn(
+    declaracao_id: UUID,
+    motivo: str = Query(..., description="Motivo do cancelamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Cancela uma declaração de ISSQN
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import ISSQNDeclaracao, StatusLancamento
+
+    declaracao = db.query(ISSQNDeclaracao).filter(
+        ISSQNDeclaracao.id == declaracao_id
+    ).first()
+
+    if not declaracao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Declaração de ISSQN não encontrada"
+        )
+
+    # Não permitir cancelamento de declarações pagas
+    if declaracao.status == StatusLancamento.PAGO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar declaração já paga"
+        )
+
+    # Cancelar declaração
+    declaracao.status = StatusLancamento.CANCELADO
+
+    # Registrar motivo
+    if declaracao.observacoes:
+        declaracao.observacoes += f"\n[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+    else:
+        declaracao.observacoes = f"[{date.today()}] Cancelado: {motivo} (por {usuario['nome']})"
+
+    db.commit()
+    db.refresh(declaracao)
+
+    return declaracao
+
+
 @router.get("/issqn/declaracoes/{declaracao_id}/pdf")
 async def gerar_pdf_issqn(
     declaracao_id: UUID,
@@ -838,12 +1177,173 @@ async def registrar_retencao_issqn(
 ):
     """
     Registra uma retenção de ISSQN na fonte
+
+    Quando o tomador de serviço é responsável pelo recolhimento do ISSQN,
+    ele deve registrar a retenção informando:
+    - Prestador do serviço
+    - Valor do serviço
+    - Código do serviço (lista LC 116/2003)
+    - Competência (mês/ano)
     """
-    # TODO: Implementar registro de retenção
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import ISSQNRetencao
+    from app.models.cadastro import Pessoa, Estabelecimento
+    from app.services.calculo_tributario import CalculadoraISSQN
+    from app.utils.generators import gerar_numero_lancamento
+    from datetime import timedelta
+    from decimal import Decimal
+
+    # Validar tomador (responsável pela retenção)
+    tomador = db.query(Pessoa).filter(Pessoa.id == retencao.tomador_id).first()
+    if not tomador:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tomador não encontrado"
+        )
+
+    # Validar prestador
+    prestador = db.query(Estabelecimento).filter(
+        Estabelecimento.id == retencao.prestador_id
+    ).first()
+    if not prestador:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prestador (estabelecimento) não encontrado"
+        )
+
+    # Gerar número da retenção
+    numero_retencao = gerar_numero_lancamento(db, "RET", retencao.ano_competencia)
+
+    # Calcular valor do ISSQN retido
+    calculadora = CalculadoraISSQN(db, retencao.ano_competencia)
+    aliquota = calculadora.obter_aliquota_issqn("NORMAL")
+
+    valor_issqn_retido = retencao.valor_servico * aliquota
+
+    # Calcular data de vencimento (dia 10 do mês seguinte à competência)
+    from datetime import datetime
+    if retencao.mes_competencia == 12:
+        data_vencimento = date(retencao.ano_competencia + 1, 1, 10)
+    else:
+        data_vencimento = date(retencao.ano_competencia, retencao.mes_competencia + 1, 10)
+
+    # Criar retenção
+    nova_retencao = ISSQNRetencao(
+        tomador_id=retencao.tomador_id,
+        prestador_id=retencao.prestador_id,
+        numero_retencao=numero_retencao,
+        mes_competencia=retencao.mes_competencia,
+        ano_competencia=retencao.ano_competencia,
+        data_retencao=date.today(),
+        valor_servico=retencao.valor_servico,
+        aliquota=aliquota,
+        valor_issqn_retido=valor_issqn_retido,
+        codigo_servico=retencao.codigo_servico,
+        data_vencimento=data_vencimento,
+        recolhido=False
     )
+
+    db.add(nova_retencao)
+    db.commit()
+    db.refresh(nova_retencao)
+
+    return nova_retencao
+
+
+@router.get("/issqn/retencoes")
+async def listar_retencoes_issqn(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    tomador_id: UUID = Query(default=None),
+    prestador_id: UUID = Query(default=None),
+    ano_competencia: int = Query(default=None),
+    mes_competencia: int = Query(default=None),
+    recolhido: bool = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Lista retenções de ISSQN com filtros e paginação
+
+    Filtros disponíveis:
+    - tomador_id: ID do tomador
+    - prestador_id: ID do prestador
+    - ano_competencia/mes_competencia: Período
+    - recolhido: Já recolhido ou não
+    """
+    from app.models.tributario import ISSQNRetencao
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(ISSQNRetencao)
+
+    # Aplicar filtros
+    if tomador_id:
+        query = query.filter(ISSQNRetencao.tomador_id == tomador_id)
+    if prestador_id:
+        query = query.filter(ISSQNRetencao.prestador_id == prestador_id)
+    if ano_competencia:
+        query = query.filter(ISSQNRetencao.ano_competencia == ano_competencia)
+    if mes_competencia:
+        query = query.filter(ISSQNRetencao.mes_competencia == mes_competencia)
+    if recolhido is not None:
+        query = query.filter(ISSQNRetencao.recolhido == recolhido)
+
+    # Ordenar por competência (mais recentes primeiro)
+    query = query.order_by(
+        ISSQNRetencao.ano_competencia.desc(),
+        ISSQNRetencao.mes_competencia.desc(),
+        ISSQNRetencao.data_retencao.desc()
+    )
+
+    # Contar total
+    total = query.count()
+
+    # Paginar
+    retencoes = query.offset(skip).limit(limit).all()
+
+    # Calcular página
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=retencoes, total=total, pagina=pagina, limite=limit)
+
+
+@router.put("/issqn/retencoes/{retencao_id}/recolher", response_model=ISSQNRetencaoResponse)
+async def recolher_retencao_issqn(
+    retencao_id: UUID,
+    valor_recolhido: Decimal = Query(..., description="Valor recolhido"),
+    data_recolhimento: date = Query(..., description="Data do recolhimento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL", "ARRECADACAO"]))
+):
+    """
+    Registra o recolhimento de uma retenção de ISSQN
+
+    Requer permissão ADMIN, FISCAL ou ARRECADACAO
+    """
+    from app.models.tributario import ISSQNRetencao
+
+    retencao = db.query(ISSQNRetencao).filter(ISSQNRetencao.id == retencao_id).first()
+
+    if not retencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Retenção de ISSQN não encontrada"
+        )
+
+    if retencao.recolhido:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Retenção já foi recolhida anteriormente"
+        )
+
+    # Registrar recolhimento
+    retencao.recolhido = True
+    retencao.data_recolhimento = data_recolhimento
+    retencao.valor_recolhido = valor_recolhido
+
+    db.commit()
+    db.refresh(retencao)
+
+    return retencao
 
 
 # =====================================================
@@ -1389,26 +1889,182 @@ async def criar_pgv(
 ):
     """
     Cria um registro de Planta Genérica de Valores
+
+    Define o valor do metro quadrado de terreno por setor fiscal.
+    Usado no cálculo do IPTU (Valor Venal do Terreno = Área × VmTT × FCT)
+
+    Requer permissão ADMIN ou FISCAL
     """
-    # TODO: Implementar criação de PGV
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import PlantaGenericaValor
+    from app.models.cadastro import SetorFiscal
+
+    # Validar setor fiscal
+    setor = db.query(SetorFiscal).filter(SetorFiscal.id == pgv.setor_fiscal_id).first()
+    if not setor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Setor fiscal não encontrado"
+        )
+
+    # Verificar se já existe PGV para este setor/ano
+    pgv_existente = db.query(PlantaGenericaValor).filter(
+        PlantaGenericaValor.setor_fiscal_id == pgv.setor_fiscal_id,
+        PlantaGenericaValor.ano_vigencia == pgv.ano_vigencia
+    ).first()
+
+    if pgv_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Já existe PGV para o setor {pgv.setor_fiscal_id} no ano {pgv.ano_vigencia}"
+        )
+
+    # Criar PGV
+    nova_pgv = PlantaGenericaValor(
+        setor_fiscal_id=pgv.setor_fiscal_id,
+        ano_vigencia=pgv.ano_vigencia,
+        data_inicio_vigencia=pgv.data_inicio_vigencia,
+        data_fim_vigencia=pgv.data_fim_vigencia,
+        valor_m2_terreno=pgv.valor_m2_terreno,
+        ativa=pgv.ativa,
+        observacoes=pgv.observacoes
     )
 
+    db.add(nova_pgv)
+    db.commit()
+    db.refresh(nova_pgv)
 
-@router.get("/pgv", response_model=List[PlantaGenericaValorResponse])
+    return nova_pgv
+
+
+@router.get("/pgv")
 async def listar_pgv(
-    ano_vigencia: int = Query(..., description="Ano de vigência"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    ano_vigencia: int = Query(default=None, description="Ano de vigência"),
     setor_fiscal_id: int = Query(default=None),
+    ativa: bool = Query(default=None),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista valores da Planta Genérica de Valores
+    Lista valores da Planta Genérica de Valores com filtros e paginação
+
+    Filtros disponíveis:
+    - ano_vigencia: Ano de vigência
+    - setor_fiscal_id: Setor fiscal específico
+    - ativa: Apenas ativas
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import PlantaGenericaValor
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(PlantaGenericaValor)
+
+    # Aplicar filtros
+    if ano_vigencia:
+        query = query.filter(PlantaGenericaValor.ano_vigencia == ano_vigencia)
+    if setor_fiscal_id:
+        query = query.filter(PlantaGenericaValor.setor_fiscal_id == setor_fiscal_id)
+    if ativa is not None:
+        query = query.filter(PlantaGenericaValor.ativa == ativa)
+
+    # Ordenar por ano e setor
+    query = query.order_by(
+        PlantaGenericaValor.ano_vigencia.desc(),
+        PlantaGenericaValor.setor_fiscal_id
+    )
+
+    # Contar total
+    total = query.count()
+
+    # Paginar
+    pgvs = query.offset(skip).limit(limit).all()
+
+    # Calcular página
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=pgvs, total=total, pagina=pagina, limite=limit)
+
+
+@router.get("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse)
+async def obter_pgv(
+    pgv_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Obtém detalhes de um registro de PGV
+    """
+    from app.models.tributario import PlantaGenericaValor
+
+    pgv = db.query(PlantaGenericaValor).filter(PlantaGenericaValor.id == pgv_id).first()
+    if not pgv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PGV não encontrada"
+        )
+
+    return pgv
+
+
+@router.put("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse)
+async def atualizar_pgv(
+    pgv_id: int,
+    atualizacao: PlantaGenericaValorCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Atualiza um registro de PGV
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import PlantaGenericaValor
+
+    pgv = db.query(PlantaGenericaValor).filter(PlantaGenericaValor.id == pgv_id).first()
+    if not pgv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PGV não encontrada"
+        )
+
+    # Atualizar campos
+    pgv.data_inicio_vigencia = atualizacao.data_inicio_vigencia
+    pgv.data_fim_vigencia = atualizacao.data_fim_vigencia
+    pgv.valor_m2_terreno = atualizacao.valor_m2_terreno
+    pgv.ativa = atualizacao.ativa
+    pgv.observacoes = atualizacao.observacoes
+
+    db.commit()
+    db.refresh(pgv)
+
+    return pgv
+
+
+@router.delete("/pgv/{pgv_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def excluir_pgv(
+    pgv_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
+):
+    """
+    Exclui um registro de PGV
+
+    Recomenda-se desativar em vez de excluir.
+    Requer permissão ADMIN
+    """
+    from app.models.tributario import PlantaGenericaValor
+
+    pgv = db.query(PlantaGenericaValor).filter(PlantaGenericaValor.id == pgv_id).first()
+    if not pgv:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PGV não encontrada"
+        )
+
+    db.delete(pgv)
+    db.commit()
+
+    return None
 
 
 # =====================================================
@@ -1423,27 +2079,192 @@ async def criar_tpc(
 ):
     """
     Cria um registro de Tabela de Preço de Construção
+
+    Define o valor do metro quadrado de edificação por padrão construtivo.
+    Usado no cálculo do IPTU (Valor Venal da Edificação = Área × VmTE × FCE)
+
+    Padrões: ALTO, MEDIO_ALTO, MEDIO, MEDIO_BAIXO, BAIXO
+
+    Requer permissão ADMIN ou FISCAL
     """
-    # TODO: Implementar criação de TPC
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import TabelaPrecoConstrucao
+
+    # Validar padrão construtivo
+    padroes_validos = ["ALTO", "MEDIO_ALTO", "MEDIO", "MEDIO_BAIXO", "BAIXO"]
+    if tpc.padrao_construtivo not in padroes_validos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Padrão construtivo deve ser um de: {', '.join(padroes_validos)}"
+        )
+
+    # Verificar se já existe TPC para este período/padrão
+    tpc_existente = db.query(TabelaPrecoConstrucao).filter(
+        TabelaPrecoConstrucao.ano_vigencia == tpc.ano_vigencia,
+        TabelaPrecoConstrucao.mes_vigencia == tpc.mes_vigencia,
+        TabelaPrecoConstrucao.padrao_construtivo == tpc.padrao_construtivo
+    ).first()
+
+    if tpc_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Já existe TPC para {tpc.padrao_construtivo} em {tpc.mes_vigencia:02d}/{tpc.ano_vigencia}"
+        )
+
+    # Criar TPC
+    nova_tpc = TabelaPrecoConstrucao(
+        ano_vigencia=tpc.ano_vigencia,
+        mes_vigencia=tpc.mes_vigencia,
+        data_inicio_vigencia=tpc.data_inicio_vigencia,
+        data_fim_vigencia=tpc.data_fim_vigencia,
+        padrao_construtivo=tpc.padrao_construtivo,
+        valor_m2_edificacao=tpc.valor_m2_edificacao,
+        cub_referencia=tpc.cub_referencia,
+        ativa=tpc.ativa,
+        observacoes=tpc.observacoes
     )
 
+    db.add(nova_tpc)
+    db.commit()
+    db.refresh(nova_tpc)
 
-@router.get("/tpc", response_model=List[TabelaPrecoConstrucaoResponse])
+    return nova_tpc
+
+
+@router.get("/tpc")
 async def listar_tpc(
-    ano_vigencia: int = Query(..., description="Ano de vigência"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    ano_vigencia: int = Query(default=None, description="Ano de vigência"),
     mes_vigencia: int = Query(default=None),
     padrao_construtivo: str = Query(default=None),
+    ativa: bool = Query(default=None),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista valores da Tabela de Preço de Construção
+    Lista valores da Tabela de Preço de Construção com filtros e paginação
+
+    Filtros disponíveis:
+    - ano_vigencia: Ano de vigência
+    - mes_vigencia: Mês de vigência (1-12)
+    - padrao_construtivo: ALTO, MEDIO_ALTO, MEDIO, MEDIO_BAIXO, BAIXO
+    - ativa: Apenas ativas
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import TabelaPrecoConstrucao
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(TabelaPrecoConstrucao)
+
+    # Aplicar filtros
+    if ano_vigencia:
+        query = query.filter(TabelaPrecoConstrucao.ano_vigencia == ano_vigencia)
+    if mes_vigencia:
+        query = query.filter(TabelaPrecoConstrucao.mes_vigencia == mes_vigencia)
+    if padrao_construtivo:
+        query = query.filter(TabelaPrecoConstrucao.padrao_construtivo == padrao_construtivo)
+    if ativa is not None:
+        query = query.filter(TabelaPrecoConstrucao.ativa == ativa)
+
+    # Ordenar por ano/mês e padrão
+    query = query.order_by(
+        TabelaPrecoConstrucao.ano_vigencia.desc(),
+        TabelaPrecoConstrucao.mes_vigencia.desc(),
+        TabelaPrecoConstrucao.padrao_construtivo
+    )
+
+    # Contar total
+    total = query.count()
+
+    # Paginar
+    tpcs = query.offset(skip).limit(limit).all()
+
+    # Calcular página
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=tpcs, total=total, pagina=pagina, limite=limit)
+
+
+@router.get("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse)
+async def obter_tpc(
+    tpc_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Obtém detalhes de um registro de TPC
+    """
+    from app.models.tributario import TabelaPrecoConstrucao
+
+    tpc = db.query(TabelaPrecoConstrucao).filter(TabelaPrecoConstrucao.id == tpc_id).first()
+    if not tpc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="TPC não encontrada"
+        )
+
+    return tpc
+
+
+@router.put("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse)
+async def atualizar_tpc(
+    tpc_id: int,
+    atualizacao: TabelaPrecoConstrucaoCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Atualiza um registro de TPC
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import TabelaPrecoConstrucao
+
+    tpc = db.query(TabelaPrecoConstrucao).filter(TabelaPrecoConstrucao.id == tpc_id).first()
+    if not tpc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="TPC não encontrada"
+        )
+
+    # Atualizar campos
+    tpc.data_inicio_vigencia = atualizacao.data_inicio_vigencia
+    tpc.data_fim_vigencia = atualizacao.data_fim_vigencia
+    tpc.valor_m2_edificacao = atualizacao.valor_m2_edificacao
+    tpc.cub_referencia = atualizacao.cub_referencia
+    tpc.ativa = atualizacao.ativa
+    tpc.observacoes = atualizacao.observacoes
+
+    db.commit()
+    db.refresh(tpc)
+
+    return tpc
+
+
+@router.delete("/tpc/{tpc_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def excluir_tpc(
+    tpc_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
+):
+    """
+    Exclui um registro de TPC
+
+    Recomenda-se desativar em vez de excluir.
+    Requer permissão ADMIN
+    """
+    from app.models.tributario import TabelaPrecoConstrucao
+
+    tpc = db.query(TabelaPrecoConstrucao).filter(TabelaPrecoConstrucao.id == tpc_id).first()
+    if not tpc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="TPC não encontrada"
+        )
+
+    db.delete(tpc)
+    db.commit()
+
+    return None
 
 
 # =====================================================
@@ -1671,3 +2492,324 @@ async def excluir_aliquota(
     db.commit()
 
     return None
+
+# =====================================================
+# PARCELAMENTOS
+# =====================================================
+
+@router.post("/parcelamentos", status_code=status.HTTP_201_CREATED)
+async def criar_parcelamento(
+    contribuinte_id: UUID = Query(..., description="ID do contribuinte"),
+    debitos_ids: List[UUID] = Query(..., description="Lista de IDs dos débitos a parcelar"),
+    numero_parcelas: int = Query(..., ge=1, le=24, description="Número de parcelas (1-24)"),
+    dia_vencimento: int = Query(..., ge=1, le=31, description="Dia de vencimento das parcelas"),
+    valor_entrada: Decimal = Query(default=Decimal("0.00"), ge=0, description="Valor da entrada"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL", "ARRECADACAO"]))
+):
+    """
+    Cria um parcelamento de débitos
+
+    Regras:
+    - Até 24 parcelas
+    - Valor mínimo da parcela: 5 UFM (PF) ou 20 UFM (PJ)
+    - Cancelamento automático: 2 parcelas em atraso OU 1 parcela > 90 dias
+
+    Requer permissão ADMIN, FISCAL ou ARRECADACAO
+    """
+    from app.models.arrecadacao import Parcelamento, ParcelamentoParcela, TipoParcelamento, StatusParcelamento, DAM
+    from app.models.cadastro import Pessoa
+    from app.utils.generators import gerar_numero_lancamento
+    from datetime import datetime, timedelta
+    from decimal import Decimal as D
+
+    # Validar contribuinte
+    contribuinte = db.query(Pessoa).filter(Pessoa.id == contribuinte_id).first()
+    if not contribuinte:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contribuinte não encontrado"
+        )
+
+    # Buscar débitos (DAMs)
+    debitos = db.query(DAM).filter(
+        DAM.id.in_(debitos_ids),
+        DAM.pago == False
+    ).all()
+
+    if len(debitos) != len(debitos_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Alguns débitos não foram encontrados ou já foram pagos"
+        )
+
+    # Calcular valor total
+    valor_total_debito = sum(d.valor_principal + d.valor_juros + d.valor_multa + d.valor_correcao 
+                             for d in debitos)
+
+    # Validar valor de entrada
+    if valor_entrada > valor_total_debito:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Valor da entrada não pode ser maior que o valor total do débito"
+        )
+
+    valor_parcelado = valor_total_debito - valor_entrada
+    valor_parcela = valor_parcelado / numero_parcelas
+
+    # Validar valor mínimo da parcela (5 UFM PF, 20 UFM PJ)
+    valor_ufm = D("14.01")  # TODO: Buscar do sistema
+    if contribuinte.tipo_pessoa == "FISICA":
+        valor_minimo = valor_ufm * 5
+    else:
+        valor_minimo = valor_ufm * 20
+
+    if valor_parcela < valor_minimo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Valor da parcela (R$ {valor_parcela:.2f}) é menor que o mínimo permitido (R$ {valor_minimo:.2f})"
+        )
+
+    # Gerar número do parcelamento
+    ano_atual = datetime.now().year
+    numero_parcelamento = gerar_numero_lancamento(db, "PARC", ano_atual)
+
+    # Criar parcelamento
+    novo_parcelamento = Parcelamento(
+        numero_parcelamento=numero_parcelamento,
+        contribuinte_id=contribuinte_id,
+        tipo_parcelamento=TipoParcelamento.PRIMEIRO,
+        data_concessao=date.today(),
+        debitos_parcelados=[str(d.id) for d in debitos],
+        valor_total_debito=valor_total_debito,
+        valor_entrada=valor_entrada,
+        valor_parcelado=valor_parcelado,
+        numero_parcelas=numero_parcelas,
+        valor_parcela=valor_parcela,
+        valor_minimo_parcela=valor_minimo,
+        dia_vencimento=dia_vencimento,
+        status=StatusParcelamento.ATIVO,
+        cancelado=False,
+        quitado=False,
+        requer_aprovacao=False,
+        aprovado=True
+    )
+
+    # Calcular vencimento da primeira parcela (próximo dia de vencimento)
+    hoje = date.today()
+    if hoje.day <= dia_vencimento:
+        primeiro_vencimento = date(hoje.year, hoje.month, min(dia_vencimento, 31))
+    else:
+        # Próximo mês
+        if hoje.month == 12:
+            primeiro_vencimento = date(hoje.year + 1, 1, min(dia_vencimento, 31))
+        else:
+            proximo_mes = hoje.month + 1
+            primeiro_vencimento = date(hoje.year, proximo_mes, min(dia_vencimento, 31))
+
+    novo_parcelamento.data_vencimento_primeira_parcela = primeiro_vencimento
+
+    db.add(novo_parcelamento)
+    db.flush()  # Para obter o ID
+
+    # Criar parcelas
+    for i in range(1, numero_parcelas + 1):
+        # Calcular vencimento
+        meses_adiante = i - 1
+        ano_venc = primeiro_vencimento.year + ((primeiro_vencimento.month + meses_adiante - 1) // 12)
+        mes_venc = ((primeiro_vencimento.month + meses_adiante - 1) % 12) + 1
+
+        # Ajustar dia se não existir no mês
+        import calendar
+        max_dia = calendar.monthrange(ano_venc, mes_venc)[1]
+        dia_venc = min(dia_vencimento, max_dia)
+
+        data_vencimento_parcela = date(ano_venc, mes_venc, dia_venc)
+
+        parcela = ParcelamentoParcela(
+            parcelamento_id=novo_parcelamento.id,
+            numero_parcela=i,
+            valor_principal=valor_parcela,
+            valor_juros=D("0.00"),
+            valor_multa=D("0.00"),
+            valor_correcao=D("0.00"),
+            valor_total=valor_parcela,
+            data_vencimento=data_vencimento_parcela,
+            pago=False
+        )
+        db.add(parcela)
+
+    db.commit()
+    db.refresh(novo_parcelamento)
+
+    return {
+        "id": str(novo_parcelamento.id),
+        "numero_parcelamento": novo_parcelamento.numero_parcelamento,
+        "contribuinte_id": str(novo_parcelamento.contribuinte_id),
+        "valor_total_debito": float(novo_parcelamento.valor_total_debito),
+        "valor_entrada": float(novo_parcelamento.valor_entrada),
+        "valor_parcelado": float(novo_parcelamento.valor_parcelado),
+        "numero_parcelas": novo_parcelamento.numero_parcelas,
+        "valor_parcela": float(novo_parcelamento.valor_parcela),
+        "data_vencimento_primeira_parcela": novo_parcelamento.data_vencimento_primeira_parcela,
+        "status": novo_parcelamento.status
+    }
+
+
+@router.get("/parcelamentos")
+async def listar_parcelamentos(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    contribuinte_id: UUID = Query(default=None),
+    status: str = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Lista parcelamentos com filtros e paginação
+    """
+    from app.models.arrecadacao import Parcelamento
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(Parcelamento)
+
+    if contribuinte_id:
+        query = query.filter(Parcelamento.contribuinte_id == contribuinte_id)
+    if status:
+        query = query.filter(Parcelamento.status == status)
+
+    query = query.order_by(Parcelamento.data_concessao.desc())
+
+    total = query.count()
+    parcelamentos = query.offset(skip).limit(limit).all()
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=parcelamentos, total=total, pagina=pagina, limite=limit)
+
+
+@router.put("/parcelamentos/{parcelamento_id}/parcela/{numero_parcela}/pagar")
+async def pagar_parcela_parcelamento(
+    parcelamento_id: UUID,
+    numero_parcela: int,
+    valor_pago: Decimal = Query(..., description="Valor pago"),
+    data_pagamento: date = Query(..., description="Data do pagamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL", "ARRECADACAO"]))
+):
+    """
+    Registra o pagamento de uma parcela do parcelamento
+    """
+    from app.models.arrecadacao import Parcelamento, ParcelamentoParcela, StatusParcelamento
+
+    parcelamento = db.query(Parcelamento).filter(Parcelamento.id == parcelamento_id).first()
+    if not parcelamento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parcelamento não encontrado"
+        )
+
+    if parcelamento.cancelado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parcelamento está cancelado"
+        )
+
+    parcela = db.query(ParcelamentoParcela).filter(
+        ParcelamentoParcela.parcelamento_id == parcelamento_id,
+        ParcelamentoParcela.numero_parcela == numero_parcela
+    ).first()
+
+    if not parcela:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parcela não encontrada"
+        )
+
+    if parcela.pago:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parcela já foi paga"
+        )
+
+    # Registrar pagamento
+    parcela.pago = True
+    parcela.data_pagamento = data_pagamento
+    parcela.valor_pago = valor_pago
+
+    # Verificar se todas as parcelas foram pagas
+    parcelas_pagas = db.query(ParcelamentoParcela).filter(
+        ParcelamentoParcela.parcelamento_id == parcelamento_id,
+        ParcelamentoParcela.pago == True
+    ).count()
+
+    if parcelas_pagas == parcelamento.numero_parcelas:
+        parcelamento.quitado = True
+        parcelamento.data_quitacao = date.today()
+        parcelamento.status = StatusParcelamento.QUITADO
+
+    db.commit()
+    db.refresh(parcela)
+
+    return {
+        "id": str(parcela.id),
+        "numero_parcela": parcela.numero_parcela,
+        "valor_pago": float(parcela.valor_pago),
+        "data_pagamento": parcela.data_pagamento,
+        "pago": parcela.pago
+    }
+
+
+@router.put("/parcelamentos/{parcelamento_id}/cancelar")
+async def cancelar_parcelamento(
+    parcelamento_id: UUID,
+    motivo: str = Query(..., description="Motivo do cancelamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Cancela um parcelamento
+
+    Motivos comuns:
+    - 2 parcelas em atraso
+    - 1 parcela com mais de 90 dias em atraso
+    - Solicitação do contribuinte
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.arrecadacao import Parcelamento, StatusParcelamento
+
+    parcelamento = db.query(Parcelamento).filter(Parcelamento.id == parcelamento_id).first()
+    if not parcelamento:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parcelamento não encontrado"
+        )
+
+    if parcelamento.cancelado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parcelamento já está cancelado"
+        )
+
+    if parcelamento.quitado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar parcelamento já quitado"
+        )
+
+    # Cancelar
+    parcelamento.cancelado = True
+    parcelamento.data_cancelamento = date.today()
+    parcelamento.motivo_cancelamento = motivo
+    parcelamento.status = StatusParcelamento.CANCELADO
+
+    db.commit()
+    db.refresh(parcelamento)
+
+    return {
+        "id": str(parcelamento.id),
+        "numero_parcelamento": parcelamento.numero_parcelamento,
+        "cancelado": parcelamento.cancelado,
+        "data_cancelamento": parcelamento.data_cancelamento,
+        "motivo_cancelamento": parcelamento.motivo_cancelamento
+    }
