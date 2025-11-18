@@ -12,8 +12,11 @@ import { ImoveisListPage } from './pages/cadastro/ImoveisListPage'
 import { LogradourosListPage } from './pages/cadastro/LogradourosListPage'
 import { EstabelecimentosListPage } from './pages/cadastro/EstabelecimentosListPage'
 import { CalculoIPTUPage } from './pages/tributario/CalculoIPTUPage'
+import { IPTULancamentosPage } from './pages/tributario/IPTULancamentosPage'
 import { ITBIPage } from './pages/tributario/ITBIPage'
 import { ISSQNPage } from './pages/tributario/ISSQNPage'
+import { AliquotasPage } from './pages/configuracoes/AliquotasPage'
+import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -41,8 +44,13 @@ function App() {
 
           {/* Tributário */}
           <Route path="/tributario/iptu/calcular" element={<CalculoIPTUPage />} />
+          <Route path="/tributario/iptu/lancamentos" element={<IPTULancamentosPage />} />
           <Route path="/tributario/itbi" element={<ITBIPage />} />
           <Route path="/tributario/issqn" element={<ISSQNPage />} />
+
+          {/* Configurações */}
+          <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />
+          <Route path="/configuracoes/isencoes" element={<IsencoesPage />} />
 
           {/* Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
