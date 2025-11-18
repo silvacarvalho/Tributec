@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Banco de Dados PostgreSQL com PostGIS
+  postgres:
+    image: postgis/postgis:14-3.3
+    container_name: tributec_postgres
+    environment:
+      POSTGRES_DB: tributec_db
+      POSTGRES_USER: tributec
+      POSTGRES_PASSWORD: tributec123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - tributec_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tributec"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis para cache e Celery
+  redis:
+    image: redis:7-alpine
+    container_name: tributec_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - tributec_network
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tributec_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - tributec_network
+
+  # Celery Worker para tarefas assíncronas
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tributec_celery_worker
+    command: celery -A app.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - tributec_network
+
+  # Celery Beat para tarefas agendadas
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tributec_celery_beat
+    command: celery -A app.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - REDIS_HOST=redis
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - tributec_network
+
+  # Frontend React (opcional - descomentar quando criado)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: tributec_frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8000
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - tributec_network
+
+  # Nginx como reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: tributec_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - tributec_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+
+networks:
+  tributec_network:
+    driver: bridge
