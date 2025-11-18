@@ -284,9 +284,23 @@ async def emitir_guia_itbi(
     imovel_service = ImovelService(db)
     imovel = imovel_service.obter_por_id(guia.imovel_id)
 
-    # TODO: Buscar valor venal do último IPTU lançado
-    # Por enquanto, usar valor padrão ou calcular
-    valor_venal = Decimal("100000.00")  # Temporário - deveria vir do último IPTU
+    # Buscar valor venal do último IPTU lançado para o imóvel
+    from app.models.tributario import IPTULancamento
+
+    ultimo_iptu = db.query(IPTULancamento).filter(
+        IPTULancamento.imovel_id == guia.imovel_id
+    ).order_by(
+        IPTULancamento.ano_exercicio.desc(),
+        IPTULancamento.data_lancamento.desc()
+    ).first()
+
+    if ultimo_iptu:
+        # Usar valor venal do último IPTU lançado
+        valor_venal = ultimo_iptu.valor_venal_total
+    else:
+        # Fallback: Se não houver IPTU lançado, usar o valor declarado como referência
+        # Isso evita bloqueio da transação e permite que o fiscal arbitre depois se necessário
+        valor_venal = guia.valor_declarado
 
     # Calcular ITBI
     calculadora = CalculadoraITBI()
