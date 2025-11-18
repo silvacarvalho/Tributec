@@ -5,13 +5,144 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
+# Descrição detalhada da API
+description = """
+## Tributec - Sistema de Gestão Tributária Municipal 🏛️
+
+Plataforma completa para digitalização e automação de **TODOS** os processos tributários,
+fiscais, de arrecadação e contenciosos do município.
+
+### Módulos Disponíveis
+
+#### 🔐 Autenticação
+* Login com JWT
+* Refresh tokens
+* Controle de permissões (ADMIN, FISCAL, ARRECADACAO)
+
+#### 👥 Cadastro
+* **Pessoas**: Física e Jurídica com validação de CPF/CNPJ
+* **Imóveis**: Cadastro completo com geometria PostGIS
+* **Logradouros**: Endereços e setores fiscais
+* **Estabelecimentos**: Inscrição municipal e atividades
+
+#### 💰 Tributos
+* **IPTU**: Lançamento, cálculo com fatores de correção, parcelamento
+* **ITBI**: Cálculo, emissão de guias, arbitramento de valores
+* **ISSQN**: 4 regimes de tributação, retenção na fonte
+
+#### 🎁 Isenções e Benefícios
+* Isenções totais ou parciais
+* Motivos: Idoso, Deficiente, Baixa Renda, Filantropia
+* Workflow de aprovação
+
+#### 📊 Configurações Tributárias
+* **Alíquotas**: Configuráveis por faixa de valor e categoria
+* **PGV**: Planta Genérica de Valores (m² terreno)
+* **TPC**: Tabela de Preços de Construção (m² edificação)
+
+#### 💳 Arrecadação
+* Parcelamentos (até 24x)
+* Renegociação de débitos
+* Controle de pagamentos
+
+#### 📈 Relatórios
+* Arrecadação por período
+* Inadimplência com aging buckets
+* Exportação de dados
+
+### Tecnologias
+
+* **Backend**: FastAPI 0.104+ (Python 3.11+)
+* **Banco de Dados**: PostgreSQL 15+ com PostGIS
+* **ORM**: SQLAlchemy 2.0
+* **Autenticação**: JWT (Bearer tokens)
+* **Documentação**: OpenAPI 3.0 (Swagger)
+
+### Ambientes
+
+* **Desenvolvimento**: http://localhost:8000
+* **Documentação Interativa**: http://localhost:8000/docs
+* **Documentação ReDoc**: http://localhost:8000/redoc
+"""
+
+# Tags para organização da documentação
+tags_metadata = [
+    {
+        "name": "Autenticação",
+        "description": "Endpoints de autenticação e autorização (login, refresh token, permissões)",
+    },
+    {
+        "name": "Cadastro - Pessoas",
+        "description": "CRUD de pessoas físicas e jurídicas",
+    },
+    {
+        "name": "Cadastro - Imóveis",
+        "description": "CRUD de imóveis com suporte a geometria PostGIS",
+    },
+    {
+        "name": "Cadastro - Logradouros",
+        "description": "CRUD de logradouros e setores fiscais",
+    },
+    {
+        "name": "Cadastro - Estabelecimentos",
+        "description": "CRUD de estabelecimentos comerciais",
+    },
+    {
+        "name": "Tributário - IPTU",
+        "description": "Lançamento, cálculo, correção e cancelamento de IPTU",
+    },
+    {
+        "name": "Tributário - ITBI",
+        "description": "Cálculo, emissão de guias, arbitramento e cancelamento de ITBI",
+    },
+    {
+        "name": "Tributário - ISSQN",
+        "description": "Declarações, retenções e cálculos de ISSQN",
+    },
+    {
+        "name": "Tributário - Isenções",
+        "description": "Gestão de isenções e imunidades tributárias",
+    },
+    {
+        "name": "Tributário - Alíquotas",
+        "description": "Configuração de alíquotas progressivas",
+    },
+    {
+        "name": "Tributário - PGV/TPC",
+        "description": "Planta Genérica de Valores e Tabela de Preços de Construção",
+    },
+    {
+        "name": "Arrecadação - Parcelamentos",
+        "description": "Parcelamentos e renegociação de débitos",
+    },
+    {
+        "name": "Relatórios",
+        "description": "Relatórios de arrecadação e inadimplência",
+    },
+]
+
 # Criação da aplicação FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Plataforma full-stack para digitalização e automação de TODOS os processos tributários, fiscais, de arrecadação e contenciosos do município.",
+    description=description,
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    openapi_tags=tags_metadata,
+    contact={
+        "name": "Equipe Tributec",
+        "url": "https://github.com/silvacarvalho/Tributec",
+        "email": "contato@tributec.gov.br",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_url="/api/v1/openapi.json",
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,  # Ocultar schemas por padrão
+        "syntaxHighlight.theme": "monokai",
+    }
 )
 
 # Configuração CORS
