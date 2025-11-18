@@ -1064,28 +1064,133 @@ async def criar_isencao(
 ):
     """
     Cria uma solicitação de isenção tributária
+
+    Requer permissão ADMIN ou FISCAL
     """
-    # TODO: Implementar criação de isenção
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import Isencao, TipoTributo, TipoIsencao
+    from app.models.cadastro import Pessoa, Imovel, Estabelecimento
+
+    # Validar beneficiário
+    beneficiario = db.query(Pessoa).filter(Pessoa.id == isencao.beneficiario_id).first()
+    if not beneficiario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Beneficiário não encontrado"
+        )
+
+    # Validar imóvel se IPTU ou ITBI
+    if isencao.tipo_tributo in ["IPTU", "ITBI"]:
+        if not isencao.imovel_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Imóvel é obrigatório para isenções de IPTU/ITBI"
+            )
+        imovel = db.query(Imovel).filter(Imovel.id == isencao.imovel_id).first()
+        if not imovel:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Imóvel não encontrado"
+            )
+
+    # Validar estabelecimento se ISSQN
+    if isencao.tipo_tributo == "ISSQN":
+        if not isencao.estabelecimento_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Estabelecimento é obrigatório para isenções de ISSQN"
+            )
+        estabelecimento = db.query(Estabelecimento).filter(
+            Estabelecimento.id == isencao.estabelecimento_id
+        ).first()
+        if not estabelecimento:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Estabelecimento não encontrado"
+            )
+
+    # Gerar número do processo
+    import datetime
+    ano_atual = datetime.datetime.now().year
+    count = db.query(Isencao).filter(
+        Isencao.numero_processo.like(f"ISEN-{ano_atual}%")
+    ).count()
+    numero_processo = f"ISEN-{ano_atual}-{count + 1:05d}"
+
+    # Criar isenção
+    nova_isencao = Isencao(
+        numero_processo=numero_processo,
+        beneficiario_id=isencao.beneficiario_id,
+        tipo_tributo=TipoTributo(isencao.tipo_tributo),
+        tipo_isencao=TipoIsencao(isencao.tipo_isencao),
+        percentual_isencao=isencao.percentual_isencao,
+        fundamento_legal=isencao.fundamento_legal,
+        artigo_lei=isencao.artigo_lei,
+        motivo=isencao.motivo,
+        descricao_motivo=isencao.descricao_motivo,
+        data_inicio=isencao.data_inicio,
+        data_fim=isencao.data_fim,
+        imovel_id=isencao.imovel_id,
+        estabelecimento_id=isencao.estabelecimento_id,
+        data_solicitacao=date.today(),
+        ativa=False,  # Inicia inativa, precisa de aprovação
+        documentos_anexos=isencao.documentos_anexos
     )
 
+    db.add(nova_isencao)
+    db.commit()
+    db.refresh(nova_isencao)
 
-@router.get("/isencoes", response_model=List[IsencaoResponse])
+    return nova_isencao
+
+
+@router.get("/isencoes")
 async def listar_isencoes(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     tipo_tributo: str = Query(default=None),
     ativa: bool = Query(default=None),
+    beneficiario_id: UUID = Query(default=None),
+    imovel_id: UUID = Query(default=None),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista isenções com filtros
+    Lista isenções com filtros e paginação
+
+    Filtros disponíveis:
+    - tipo_tributo: IPTU, ITBI, ISSQN
+    - ativa: true/false
+    - beneficiario_id: ID do beneficiário
+    - imovel_id: ID do imóvel
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import Isencao
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(Isencao)
+
+    # Aplicar filtros
+    if tipo_tributo:
+        query = query.filter(Isencao.tipo_tributo == tipo_tributo)
+    if ativa is not None:
+        query = query.filter(Isencao.ativa == ativa)
+    if beneficiario_id:
+        query = query.filter(Isencao.beneficiario_id == beneficiario_id)
+    if imovel_id:
+        query = query.filter(Isencao.imovel_id == imovel_id)
+
+    # Ordenar por data de solicitação (mais recentes primeiro)
+    query = query.order_by(Isencao.data_solicitacao.desc())
+
+    # Contar total
+    total = query.count()
+
+    # Paginar
+    isencoes = query.offset(skip).limit(limit).all()
+
+    # Calcular página
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=isencoes, total=total, pagina=pagina, limite=limit)
 
 
 @router.get("/isencoes/{isencao_id}", response_model=IsencaoResponse)
@@ -1095,13 +1200,18 @@ async def obter_isencao(
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Obtém detalhes de uma isenção
+    Obtém detalhes de uma isenção específica
     """
-    # TODO: Implementar busca
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.models.tributario import Isencao
+
+    isencao = db.query(Isencao).filter(Isencao.id == isencao_id).first()
+    if not isencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Isenção não encontrada"
+        )
+
+    return isencao
 
 
 @router.put("/isencoes/{isencao_id}/aprovar", response_model=IsencaoResponse)
@@ -1112,29 +1222,159 @@ async def aprovar_isencao(
 ):
     """
     Aprova uma isenção tributária
+
+    Requer permissão ADMIN ou FISCAL
     """
-    # TODO: Implementar aprovação
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.models.tributario import Isencao
+
+    isencao = db.query(Isencao).filter(Isencao.id == isencao_id).first()
+    if not isencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Isenção não encontrada"
+        )
+
+    if isencao.ativa:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Isenção já está ativa"
+        )
+
+    # Aprovar isenção
+    isencao.ativa = True
+    isencao.data_aprovacao = date.today()
+    isencao.aprovado_por_id = usuario["id"]
+
+    db.commit()
+    db.refresh(isencao)
+
+    return isencao
 
 
 @router.put("/isencoes/{isencao_id}/cancelar", response_model=IsencaoResponse)
 async def cancelar_isencao(
     isencao_id: UUID,
-    motivo: str,
+    motivo: str = Query(..., description="Motivo do cancelamento"),
     db: Session = Depends(get_db),
     usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
 ):
     """
     Cancela uma isenção tributária
+
+    Requer permissão ADMIN ou FISCAL
     """
-    # TODO: Implementar cancelamento
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.models.tributario import Isencao
+
+    isencao = db.query(Isencao).filter(Isencao.id == isencao_id).first()
+    if not isencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Isenção não encontrada"
+        )
+
+    if not isencao.ativa:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Isenção já está inativa"
+        )
+
+    # Cancelar isenção
+    isencao.ativa = False
+    isencao.data_cancelamento = date.today()
+    isencao.motivo_cancelamento = motivo
+
+    db.commit()
+    db.refresh(isencao)
+
+    return isencao
+
+
+@router.put("/isencoes/{isencao_id}", response_model=IsencaoResponse)
+async def atualizar_isencao(
+    isencao_id: UUID,
+    atualizacao: IsencaoUpdate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL"]))
+):
+    """
+    Atualiza dados de uma isenção
+
+    Permite atualizar:
+    - data_fim: Data de fim da isenção
+    - ativa: Status da isenção
+    - motivo_cancelamento: Motivo do cancelamento
+
+    Requer permissão ADMIN ou FISCAL
+    """
+    from app.models.tributario import Isencao
+
+    isencao = db.query(Isencao).filter(Isencao.id == isencao_id).first()
+    if not isencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Isenção não encontrada"
+        )
+
+    # Aplicar atualizações
+    if atualizacao.data_fim is not None:
+        isencao.data_fim = atualizacao.data_fim
+
+    if atualizacao.ativa is not None:
+        isencao.ativa = atualizacao.ativa
+        if not atualizacao.ativa and not isencao.data_cancelamento:
+            isencao.data_cancelamento = date.today()
+
+    if atualizacao.motivo_cancelamento is not None:
+        isencao.motivo_cancelamento = atualizacao.motivo_cancelamento
+
+    db.commit()
+    db.refresh(isencao)
+
+    return isencao
+
+
+@router.delete("/isencoes/{isencao_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def excluir_isencao(
+    isencao_id: UUID,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
+):
+    """
+    Exclui uma isenção tributária
+
+    ATENÇÃO: Esta operação é irreversível!
+    Requer permissão ADMIN
+    """
+    from app.models.tributario import Isencao, IPTULancamento, ITBIGuia, ISSQNDeclaracao
+
+    isencao = db.query(Isencao).filter(Isencao.id == isencao_id).first()
+    if not isencao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Isenção não encontrada"
+        )
+
+    # Verificar se a isenção está sendo utilizada
+    iptu_usando = db.query(IPTULancamento).filter(
+        IPTULancamento.isencao_id == isencao_id
+    ).count()
+    itbi_usando = db.query(ITBIGuia).filter(
+        ITBIGuia.isencao_id == isencao_id
+    ).count()
+    issqn_usando = db.query(ISSQNDeclaracao).filter(
+        ISSQNDeclaracao.isencao_id == isencao_id
+    ).count()
+
+    if iptu_usando > 0 or itbi_usando > 0 or issqn_usando > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível excluir isenção que está sendo utilizada em lançamentos. Cancele-a em vez de excluir."
+        )
+
+    db.delete(isencao)
+    db.commit()
+
+    return None
 
 
 # =====================================================
@@ -1217,24 +1457,217 @@ async def criar_aliquota(
     usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
 ):
     """
-    Cria uma alíquota tributária
+    Cria uma alíquota tributária configurável
+
+    Permite definir:
+    - Alíquotas por tipo de tributo (IPTU, ITBI, ISSQN)
+    - Alíquotas progressivas com faixas de valor
+    - Alíquotas por categoria (RESIDENCIAL, COMERCIAL, etc.)
+    - Vigência temporal
+
+    Requer permissão ADMIN
     """
-    # TODO: Implementar criação de alíquota
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import Aliquota, TipoTributo
+
+    # Validar faixas de valor
+    if aliquota.valor_minimo is not None and aliquota.valor_maximo is not None:
+        if aliquota.valor_minimo >= aliquota.valor_maximo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor mínimo deve ser menor que valor máximo"
+            )
+
+    # Verificar conflito de alíquotas na mesma vigência
+    query = db.query(Aliquota).filter(
+        Aliquota.tipo_tributo == aliquota.tipo_tributo,
+        Aliquota.ano_vigencia == aliquota.ano_vigencia,
+        Aliquota.ativa == True
     )
 
+    if aliquota.categoria:
+        query = query.filter(Aliquota.categoria == aliquota.categoria)
 
-@router.get("/aliquotas", response_model=List[AliquotaResponse])
+    # Verificar sobreposição de faixas
+    if aliquota.valor_minimo is not None or aliquota.valor_maximo is not None:
+        aliquotas_existentes = query.all()
+        for ali in aliquotas_existentes:
+            # Se a nova alíquota tem faixas
+            if aliquota.valor_minimo is not None and aliquota.valor_maximo is not None:
+                # E a existente também tem faixas
+                if ali.valor_minimo is not None and ali.valor_maximo is not None:
+                    # Verificar sobreposição
+                    if not (aliquota.valor_maximo <= ali.valor_minimo or
+                            aliquota.valor_minimo >= ali.valor_maximo):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Faixa de valores conflita com alíquota existente (ID: {ali.id})"
+                        )
+
+    # Criar alíquota
+    nova_aliquota = Aliquota(
+        tipo_tributo=TipoTributo(aliquota.tipo_tributo),
+        categoria=aliquota.categoria,
+        valor_minimo=aliquota.valor_minimo,
+        valor_maximo=aliquota.valor_maximo,
+        aliquota=aliquota.aliquota,
+        ano_vigencia=aliquota.ano_vigencia,
+        data_inicio_vigencia=aliquota.data_inicio_vigencia,
+        data_fim_vigencia=aliquota.data_fim_vigencia,
+        ativa=aliquota.ativa,
+        observacoes=aliquota.observacoes
+    )
+
+    db.add(nova_aliquota)
+    db.commit()
+    db.refresh(nova_aliquota)
+
+    return nova_aliquota
+
+
+@router.get("/aliquotas")
 async def listar_aliquotas(
-    tipo_tributo: str = Query(..., description="Tipo de tributo"),
-    ano_vigencia: int = Query(..., description="Ano de vigência"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    tipo_tributo: str = Query(default=None, description="Tipo de tributo"),
+    ano_vigencia: int = Query(default=None, description="Ano de vigência"),
+    categoria: str = Query(default=None, description="Categoria"),
+    ativa: bool = Query(default=None, description="Apenas ativas"),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista alíquotas por tributo e vigência
+    Lista alíquotas com filtros e paginação
+
+    Filtros disponíveis:
+    - tipo_tributo: IPTU, ITBI, ISSQN
+    - ano_vigencia: Ano de vigência
+    - categoria: RESIDENCIAL, COMERCIAL, etc.
+    - ativa: true/false
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import Aliquota
+    from app.schemas.base import criar_resposta_paginada
+
+    query = db.query(Aliquota)
+
+    # Aplicar filtros
+    if tipo_tributo:
+        query = query.filter(Aliquota.tipo_tributo == tipo_tributo)
+    if ano_vigencia:
+        query = query.filter(Aliquota.ano_vigencia == ano_vigencia)
+    if categoria:
+        query = query.filter(Aliquota.categoria == categoria)
+    if ativa is not None:
+        query = query.filter(Aliquota.ativa == ativa)
+
+    # Ordenar por tipo, categoria e faixa de valor
+    query = query.order_by(
+        Aliquota.tipo_tributo,
+        Aliquota.categoria,
+        Aliquota.valor_minimo.nullslast()
+    )
+
+    # Contar total
+    total = query.count()
+
+    # Paginar
+    aliquotas = query.offset(skip).limit(limit).all()
+
+    # Calcular página
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+
+    return criar_resposta_paginada(dados=aliquotas, total=total, pagina=pagina, limite=limit)
+
+
+@router.get("/aliquotas/{aliquota_id}", response_model=AliquotaResponse)
+async def obter_aliquota(
+    aliquota_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Obtém detalhes de uma alíquota específica
+    """
+    from app.models.tributario import Aliquota
+
+    aliquota = db.query(Aliquota).filter(Aliquota.id == aliquota_id).first()
+    if not aliquota:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alíquota não encontrada"
+        )
+
+    return aliquota
+
+
+@router.put("/aliquotas/{aliquota_id}", response_model=AliquotaResponse)
+async def atualizar_aliquota(
+    aliquota_id: int,
+    atualizacao: AliquotaCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
+):
+    """
+    Atualiza uma alíquota existente
+
+    Requer permissão ADMIN
+    """
+    from app.models.tributario import Aliquota, TipoTributo
+
+    aliquota = db.query(Aliquota).filter(Aliquota.id == aliquota_id).first()
+    if not aliquota:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alíquota não encontrada"
+        )
+
+    # Validar faixas de valor
+    if atualizacao.valor_minimo is not None and atualizacao.valor_maximo is not None:
+        if atualizacao.valor_minimo >= atualizacao.valor_maximo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor mínimo deve ser menor que valor máximo"
+            )
+
+    # Atualizar campos
+    aliquota.tipo_tributo = TipoTributo(atualizacao.tipo_tributo)
+    aliquota.categoria = atualizacao.categoria
+    aliquota.valor_minimo = atualizacao.valor_minimo
+    aliquota.valor_maximo = atualizacao.valor_maximo
+    aliquota.aliquota = atualizacao.aliquota
+    aliquota.ano_vigencia = atualizacao.ano_vigencia
+    aliquota.data_inicio_vigencia = atualizacao.data_inicio_vigencia
+    aliquota.data_fim_vigencia = atualizacao.data_fim_vigencia
+    aliquota.ativa = atualizacao.ativa
+    aliquota.observacoes = atualizacao.observacoes
+
+    db.commit()
+    db.refresh(aliquota)
+
+    return aliquota
+
+
+@router.delete("/aliquotas/{aliquota_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def excluir_aliquota(
+    aliquota_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN"]))
+):
+    """
+    Exclui uma alíquota
+
+    Recomenda-se desativar em vez de excluir para manter histórico.
+    Requer permissão ADMIN
+    """
+    from app.models.tributario import Aliquota
+
+    aliquota = db.query(Aliquota).filter(Aliquota.id == aliquota_id).first()
+    if not aliquota:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alíquota não encontrada"
+        )
+
+    db.delete(aliquota)
+    db.commit()
+
+    return None

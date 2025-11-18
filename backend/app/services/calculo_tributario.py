@@ -8,7 +8,7 @@ from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models.cadastro import Imovel, ImovelTerreno, ImovelEdificacao
-from app.models.tributario import PlantaGenericaValor, TabelaPrecoConstrucao, Aliquota
+from app.models.tributario import PlantaGenericaValor, TabelaPrecoConstrucao, Aliquota, Isencao
 
 
 class CalculadoraIPTU:
@@ -224,7 +224,69 @@ class CalculadoraIPTU:
 
         return Decimal("0.0050")  # Padrão 0,50%
 
-    def calcular(self, imovel_id: str) -> Dict:
+    def obter_isencao_ativa(
+        self,
+        imovel_id: str,
+        beneficiario_id: Optional[str] = None
+    ) -> Optional[Isencao]:
+        """
+        Busca isenção ativa de IPTU para o imóvel
+
+        Args:
+            imovel_id: ID do imóvel
+            beneficiario_id: ID do beneficiário (proprietário)
+
+        Returns:
+            Isencao ativa ou None
+        """
+        hoje = date.today()
+
+        query = self.db.query(Isencao).filter(
+            Isencao.tipo_tributo == "IPTU",
+            Isencao.imovel_id == imovel_id,
+            Isencao.ativa == True,
+            Isencao.data_inicio <= hoje
+        )
+
+        # Filtrar por data de fim (se houver)
+        query = query.filter(
+            (Isencao.data_fim.is_(None)) | (Isencao.data_fim >= hoje)
+        )
+
+        # Se houver beneficiário específico
+        if beneficiario_id:
+            query = query.filter(Isencao.beneficiario_id == beneficiario_id)
+
+        return query.first()
+
+    def aplicar_isencao(
+        self,
+        valor_tributo: Decimal,
+        isencao: Optional[Isencao]
+    ) -> Tuple[Decimal, Decimal]:
+        """
+        Aplica isenção ao valor do tributo
+
+        Args:
+            valor_tributo: Valor original do tributo
+            isencao: Isenção a ser aplicada
+
+        Returns:
+            Tupla (valor_isencao, valor_final)
+        """
+        if not isencao:
+            return Decimal("0.00"), valor_tributo
+
+        # Calcular valor da isenção
+        percentual = isencao.percentual_isencao / Decimal("100.00")
+        valor_isencao = valor_tributo * percentual
+
+        # Valor final após isenção
+        valor_final = valor_tributo - valor_isencao
+
+        return valor_isencao, valor_final
+
+    def calcular(self, imovel_id: str, beneficiario_id: Optional[str] = None) -> Dict:
         """
         Calcula o IPTU de um imóvel
 
@@ -306,12 +368,16 @@ class CalculadoraIPTU:
         # Calcular IPTU
         valor_iptu = vvi * aliquota
 
-        # Descontos
-        desconto_pagamento_unico = valor_iptu * Decimal("0.10")  # 10%
-        desconto_iptu_digital = valor_iptu * Decimal("0.02")  # 2%
+        # Buscar e aplicar isenção
+        isencao = self.obter_isencao_ativa(str(imovel_id), beneficiario_id)
+        valor_isencao, valor_apos_isencao = self.aplicar_isencao(valor_iptu, isencao)
 
-        # Valor líquido com descontos
-        valor_liquido = valor_iptu - desconto_pagamento_unico - desconto_iptu_digital
+        # Descontos sobre o valor após isenção
+        desconto_pagamento_unico = valor_apos_isencao * Decimal("0.10")  # 10%
+        desconto_iptu_digital = valor_apos_isencao * Decimal("0.02")  # 2%
+
+        # Valor líquido com isenção e descontos
+        valor_liquido = valor_apos_isencao - desconto_pagamento_unico - desconto_iptu_digital
 
         return {
             "imovel_id": str(imovel_id),
@@ -337,6 +403,11 @@ class CalculadoraIPTU:
             "aliquota_aplicada": float(aliquota),
             "valor_iptu": float(valor_iptu),
 
+            # Isenção
+            "isencao_id": str(isencao.id) if isencao else None,
+            "valor_isencao": float(valor_isencao),
+            "valor_apos_isencao": float(valor_apos_isencao),
+
             # Descontos
             "desconto_pagamento_unico": float(desconto_pagamento_unico),
             "desconto_iptu_digital": float(desconto_iptu_digital),
@@ -360,11 +431,108 @@ class CalculadoraITBI:
         - ITBI = Base × 2%
     """
 
+    def __init__(self, db: Session, ano_vigencia: int):
+        self.db = db
+        self.ano_vigencia = ano_vigencia
+
+    def obter_aliquotas_itbi(self) -> Tuple[Decimal, Decimal]:
+        """
+        Busca alíquotas de ITBI no banco de dados
+
+        Returns:
+            Tupla (aliquota_sfh, aliquota_normal)
+        """
+        # Buscar alíquota para financiamento SFH
+        aliq_sfh = self.db.query(Aliquota).filter(
+            Aliquota.tipo_tributo == "ITBI",
+            Aliquota.categoria == "SFH",
+            Aliquota.ano_vigencia == self.ano_vigencia,
+            Aliquota.ativa == True
+        ).first()
+
+        # Buscar alíquota normal
+        aliq_normal = self.db.query(Aliquota).filter(
+            Aliquota.tipo_tributo == "ITBI",
+            Aliquota.categoria == "NORMAL",
+            Aliquota.ano_vigencia == self.ano_vigencia,
+            Aliquota.ativa == True
+        ).first()
+
+        # Valores padrão se não encontrar no banco
+        aliquota_sfh = aliq_sfh.aliquota if aliq_sfh else Decimal("0.01")  # 1%
+        aliquota_normal = aliq_normal.aliquota if aliq_normal else Decimal("0.02")  # 2%
+
+        return aliquota_sfh, aliquota_normal
+
+    def obter_isencao_ativa(
+        self,
+        imovel_id: str,
+        beneficiario_id: Optional[str] = None
+    ) -> Optional[Isencao]:
+        """
+        Busca isenção ativa de ITBI para o imóvel
+
+        Args:
+            imovel_id: ID do imóvel
+            beneficiario_id: ID do beneficiário (adquirente)
+
+        Returns:
+            Isencao ativa ou None
+        """
+        hoje = date.today()
+
+        query = self.db.query(Isencao).filter(
+            Isencao.tipo_tributo == "ITBI",
+            Isencao.imovel_id == imovel_id,
+            Isencao.ativa == True,
+            Isencao.data_inicio <= hoje
+        )
+
+        # Filtrar por data de fim (se houver)
+        query = query.filter(
+            (Isencao.data_fim.is_(None)) | (Isencao.data_fim >= hoje)
+        )
+
+        # Se houver beneficiário específico
+        if beneficiario_id:
+            query = query.filter(Isencao.beneficiario_id == beneficiario_id)
+
+        return query.first()
+
+    def aplicar_isencao(
+        self,
+        valor_tributo: Decimal,
+        isencao: Optional[Isencao]
+    ) -> Tuple[Decimal, Decimal]:
+        """
+        Aplica isenção ao valor do tributo
+
+        Args:
+            valor_tributo: Valor original do tributo
+            isencao: Isenção a ser aplicada
+
+        Returns:
+            Tupla (valor_isencao, valor_final)
+        """
+        if not isencao:
+            return Decimal("0.00"), valor_tributo
+
+        # Calcular valor da isenção
+        percentual = isencao.percentual_isencao / Decimal("100.00")
+        valor_isencao = valor_tributo * percentual
+
+        # Valor final após isenção
+        valor_final = valor_tributo - valor_isencao
+
+        return valor_isencao, valor_final
+
     def calcular(
         self,
         valor_declarado: Decimal,
         valor_venal: Decimal,
-        valor_financiado_sfh: Decimal = Decimal("0.00")
+        valor_financiado_sfh: Decimal = Decimal("0.00"),
+        imovel_id: Optional[str] = None,
+        beneficiario_id: Optional[str] = None
     ) -> Dict:
         """
         Calcula o ITBI
@@ -373,6 +541,8 @@ class CalculadoraITBI:
             valor_declarado: Valor declarado na transação
             valor_venal: Valor venal do imóvel (IPTU)
             valor_financiado_sfh: Valor financiado pelo SFH
+            imovel_id: ID do imóvel (para buscar isenção)
+            beneficiario_id: ID do adquirente (para buscar isenção)
 
         Returns:
             Dict com valores e detalhamento do cálculo
@@ -380,9 +550,8 @@ class CalculadoraITBI:
         # Base de cálculo: maior valor entre declarado e venal
         base_calculo = max(valor_declarado, valor_venal)
 
-        # Alíquotas
-        aliquota_sfh = Decimal("0.01")  # 1% para parcela financiada SFH
-        aliquota_normal = Decimal("0.02")  # 2% para demais
+        # Obter alíquotas do banco de dados
+        aliquota_sfh, aliquota_normal = self.obter_aliquotas_itbi()
 
         # Cálculo
         if valor_financiado_sfh > 0:
@@ -400,6 +569,15 @@ class CalculadoraITBI:
             itbi_normal = base_calculo * aliquota_normal
             itbi_total = itbi_normal
 
+        # Buscar e aplicar isenção
+        isencao = None
+        valor_isencao = Decimal("0.00")
+        valor_liquido = itbi_total
+
+        if imovel_id:
+            isencao = self.obter_isencao_ativa(imovel_id, beneficiario_id)
+            valor_isencao, valor_liquido = self.aplicar_isencao(itbi_total, isencao)
+
         return {
             "valor_declarado": float(valor_declarado),
             "valor_venal": float(valor_venal),
@@ -416,7 +594,12 @@ class CalculadoraITBI:
             # ITBI
             "itbi_sfh": float(itbi_sfh),
             "itbi_normal": float(itbi_normal),
-            "itbi_total": float(itbi_total)
+            "itbi_total": float(itbi_total),
+
+            # Isenção
+            "isencao_id": str(isencao.id) if isencao else None,
+            "valor_isencao": float(valor_isencao),
+            "valor_liquido": float(valor_liquido)
         }
 
 
@@ -433,27 +616,144 @@ class CalculadoraISSQN:
     - Sociedades Uniprofissionais: Valor_Fixo × Nº_Profissionais
     """
 
-    def __init__(self, valor_ufm: Decimal = Decimal("14.01")):
+    def __init__(
+        self,
+        db: Session,
+        ano_vigencia: int,
+        valor_ufm: Decimal = Decimal("14.01")
+    ):
+        self.db = db
+        self.ano_vigencia = ano_vigencia
         self.valor_ufm = valor_ufm
+
+    def obter_aliquota_issqn(self, categoria: str = "NORMAL") -> Decimal:
+        """
+        Busca alíquota de ISSQN no banco de dados
+
+        Args:
+            categoria: Categoria da alíquota (NORMAL, etc.)
+
+        Returns:
+            Alíquota (padrão 5% = 0.05)
+        """
+        aliq = self.db.query(Aliquota).filter(
+            Aliquota.tipo_tributo == "ISSQN",
+            Aliquota.categoria == categoria,
+            Aliquota.ano_vigencia == self.ano_vigencia,
+            Aliquota.ativa == True
+        ).first()
+
+        # Valor padrão se não encontrar no banco
+        return aliq.aliquota if aliq else Decimal("0.05")  # 5%
+
+    def obter_isencao_ativa(
+        self,
+        estabelecimento_id: str,
+        beneficiario_id: Optional[str] = None
+    ) -> Optional[Isencao]:
+        """
+        Busca isenção ativa de ISSQN para o estabelecimento
+
+        Args:
+            estabelecimento_id: ID do estabelecimento
+            beneficiario_id: ID do beneficiário (proprietário)
+
+        Returns:
+            Isencao ativa ou None
+        """
+        hoje = date.today()
+
+        query = self.db.query(Isencao).filter(
+            Isencao.tipo_tributo == "ISSQN",
+            Isencao.estabelecimento_id == estabelecimento_id,
+            Isencao.ativa == True,
+            Isencao.data_inicio <= hoje
+        )
+
+        # Filtrar por data de fim (se houver)
+        query = query.filter(
+            (Isencao.data_fim.is_(None)) | (Isencao.data_fim >= hoje)
+        )
+
+        # Se houver beneficiário específico
+        if beneficiario_id:
+            query = query.filter(Isencao.beneficiario_id == beneficiario_id)
+
+        return query.first()
+
+    def aplicar_isencao(
+        self,
+        valor_tributo: Decimal,
+        isencao: Optional[Isencao]
+    ) -> Tuple[Decimal, Decimal]:
+        """
+        Aplica isenção ao valor do tributo
+
+        Args:
+            valor_tributo: Valor original do tributo
+            isencao: Isenção a ser aplicada
+
+        Returns:
+            Tupla (valor_isencao, valor_final)
+        """
+        if not isencao:
+            return Decimal("0.00"), valor_tributo
+
+        # Calcular valor da isenção
+        percentual = isencao.percentual_isencao / Decimal("100.00")
+        valor_isencao = valor_tributo * percentual
+
+        # Valor final após isenção
+        valor_final = valor_tributo - valor_isencao
+
+        return valor_isencao, valor_final
 
     def calcular_regime_normal(
         self,
         receita_bruta: Decimal,
         deducoes_permitidas: Decimal = Decimal("0.00"),
-        aliquota: Decimal = Decimal("0.05")
+        estabelecimento_id: Optional[str] = None,
+        beneficiario_id: Optional[str] = None,
+        aliquota: Optional[Decimal] = None
     ) -> Dict:
         """
         Calcula ISSQN no regime normal
+
+        Args:
+            receita_bruta: Receita bruta do período
+            deducoes_permitidas: Deduções permitidas por lei
+            estabelecimento_id: ID do estabelecimento (para buscar isenção)
+            beneficiario_id: ID do beneficiário (para buscar isenção)
+            aliquota: Alíquota específica (se None, busca no banco)
+
+        Returns:
+            Dict com valores e detalhamento do cálculo
         """
+        # Se não forneceu alíquota, busca no banco
+        if aliquota is None:
+            aliquota = self.obter_aliquota_issqn("NORMAL")
+
         base_calculo = receita_bruta - deducoes_permitidas
         issqn = base_calculo * aliquota
+
+        # Buscar e aplicar isenção
+        isencao = None
+        valor_isencao = Decimal("0.00")
+        valor_liquido = issqn
+
+        if estabelecimento_id:
+            isencao = self.obter_isencao_ativa(estabelecimento_id, beneficiario_id)
+            valor_isencao, valor_liquido = self.aplicar_isencao(issqn, isencao)
 
         return {
             "receita_bruta": float(receita_bruta),
             "deducoes_permitidas": float(deducoes_permitidas),
             "base_calculo": float(base_calculo),
             "aliquota": float(aliquota),
-            "issqn": float(issqn)
+            "issqn": float(issqn),
+            "isencao_id": str(isencao.id) if isencao else None,
+            "valor_isencao": float(valor_isencao),
+            "valor_liquido": float(valor_liquido)
         }
 
     def calcular_regime_fixo(
