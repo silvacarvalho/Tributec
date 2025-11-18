@@ -333,20 +333,47 @@ async def emitir_guia_itbi(
     return nova_guia
 
 
-@router.get("/itbi/guias", response_model=List[ITBIGuiaResponse])
+@router.get("/itbi/guias")
 async def listar_guias_itbi(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     imovel_id: UUID = Query(default=None),
     pago: bool = Query(default=None),
+    ano_emissao: int = Query(default=None),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista guias de ITBI com filtros
+    Lista guias de ITBI com filtros e paginação
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import ITBIGuia
+    from app.schemas.base import criar_resposta_paginada
+    from sqlalchemy import extract
+
+    # Construir query com filtros
+    query = db.query(ITBIGuia)
+
+    if imovel_id:
+        query = query.filter(ITBIGuia.imovel_id == imovel_id)
+
+    if pago is not None:
+        query = query.filter(ITBIGuia.pago == pago)
+
+    if ano_emissao:
+        query = query.filter(extract('year', ITBIGuia.data_emissao) == ano_emissao)
+
+    # Ordenar por data de emissão (mais recentes primeiro)
+    query = query.order_by(ITBIGuia.data_emissao.desc())
+
+    # Contar total
+    total = query.count()
+
+    # Aplicar paginação
+    guias = query.offset(skip).limit(limit).all()
+
+    # Retornar resposta paginada
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=guias, total=total, pagina=pagina, limite=limit)
 
 
 @router.get("/itbi/guias/{guia_id}", response_model=ITBIGuiaResponse)
@@ -358,11 +385,119 @@ async def obter_guia_itbi(
     """
     Obtém detalhes de uma guia de ITBI
     """
-    # TODO: Implementar busca
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.models.tributario import ITBIGuia
+
+    guia = db.query(ITBIGuia).filter(ITBIGuia.id == guia_id).first()
+
+    if not guia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guia de ITBI não encontrada"
+        )
+
+    return guia
+
+
+@router.put("/itbi/guias/{guia_id}/registrar-pagamento", response_model=ITBIGuiaResponse)
+async def registrar_pagamento_itbi(
+    guia_id: UUID,
+    valor_pago: Decimal = Query(..., description="Valor pago"),
+    data_pagamento: date = Query(..., description="Data do pagamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL", "ARRECADACAO"]))
+):
+    """
+    Registra o pagamento de uma guia de ITBI
+    """
+    from app.models.tributario import ITBIGuia, StatusLancamento
+    from datetime import date as date_type
+
+    guia = db.query(ITBIGuia).filter(ITBIGuia.id == guia_id).first()
+
+    if not guia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guia de ITBI não encontrada"
+        )
+
+    if guia.pago:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Guia já foi paga anteriormente"
+        )
+
+    # Registrar pagamento
+    guia.pago = True
+    guia.data_pagamento = data_pagamento
+    guia.valor_pago = valor_pago
+    guia.status = StatusLancamento.PAGO
+
+    db.commit()
+    db.refresh(guia)
+
+    return guia
+
+
+@router.get("/itbi/guias/{guia_id}/pdf")
+async def gerar_pdf_itbi(
+    guia_id: UUID,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Gera PDF da guia de ITBI
+    """
+    from app.models.tributario import ITBIGuia
+    from app.services.pdf_service import PDFService
+    from fastapi.responses import StreamingResponse
+
+    guia = db.query(ITBIGuia).filter(ITBIGuia.id == guia_id).first()
+
+    if not guia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guia de ITBI não encontrada"
+        )
+
+    # Buscar dados relacionados
+    imovel = guia.imovel
+    transmitente = guia.transmitente if hasattr(guia, 'transmitente') else None
+    adquirente = guia.adquirente if hasattr(guia, 'adquirente') else None
+
+    pdf_service = PDFService()
+
+    try:
+        pdf_buffer = pdf_service.gerar_guia_itbi(
+            numero_guia=guia.numero_guia,
+            data_emissao=guia.data_emissao,
+            valor_itbi=guia.valor_itbi_total,
+            valor_liquido=guia.valor_liquido,
+            data_vencimento=guia.data_vencimento,
+            tipo_transmissao=guia.tipo_transmissao,
+            imovel_inscricao=imovel.inscricao_imobiliaria if imovel else "N/A",
+            transmitente_nome=transmitente.nome_razao_social if transmitente else "N/A",
+            transmitente_doc=transmitente.cpf or transmitente.cnpj if transmitente else "N/A",
+            adquirente_nome=adquirente.nome_razao_social if adquirente else "N/A",
+            adquirente_doc=adquirente.cpf or adquirente.cnpj if adquirente else "N/A",
+            valor_declarado=guia.valor_declarado,
+            valor_venal=guia.valor_venal,
+            aliquota_normal=guia.aliquota_normal,
+            aliquota_sfh=guia.aliquota_sfh if guia.valor_financiado_sfh > 0 else None,
+            valor_financiado_sfh=guia.valor_financiado_sfh if guia.valor_financiado_sfh > 0 else None,
+        )
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=guia_itbi_{guia.numero_guia}.pdf"
+            }
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 # =====================================================
@@ -536,21 +671,149 @@ async def criar_declaracao_issqn(
     return nova_declaracao
 
 
-@router.get("/issqn/declaracoes", response_model=List[ISSQNDeclaracaoResponse])
+@router.get("/issqn/declaracoes")
 async def listar_declaracoes_issqn(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     estabelecimento_id: UUID = Query(default=None),
     ano_competencia: int = Query(default=None),
     mes_competencia: int = Query(default=None),
+    pago: bool = Query(default=None),
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Lista declarações de ISSQN com filtros
+    Lista declarações de ISSQN com filtros e paginação
     """
-    # TODO: Implementar listagem
-    return []
+    from app.models.tributario import ISSQNDeclaracao
+    from app.schemas.base import criar_resposta_paginada
+
+    # Construir query com filtros
+    query = db.query(ISSQNDeclaracao)
+
+    if estabelecimento_id:
+        query = query.filter(ISSQNDeclaracao.estabelecimento_id == estabelecimento_id)
+
+    if ano_competencia:
+        query = query.filter(ISSQNDeclaracao.ano_competencia == ano_competencia)
+
+    if mes_competencia:
+        query = query.filter(ISSQNDeclaracao.mes_competencia == mes_competencia)
+
+    if pago is not None:
+        query = query.filter(ISSQNDeclaracao.pago == pago)
+
+    # Ordenar por competência (mais recentes primeiro)
+    query = query.order_by(
+        ISSQNDeclaracao.ano_competencia.desc(),
+        ISSQNDeclaracao.mes_competencia.desc()
+    )
+
+    # Contar total
+    total = query.count()
+
+    # Aplicar paginação
+    declaracoes = query.offset(skip).limit(limit).all()
+
+    # Retornar resposta paginada
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=declaracoes, total=total, pagina=pagina, limite=limit)
+
+
+@router.put("/issqn/declaracoes/{declaracao_id}/registrar-pagamento", response_model=ISSQNDeclaracaoResponse)
+async def registrar_pagamento_issqn(
+    declaracao_id: UUID,
+    valor_pago: Decimal = Query(..., description="Valor pago"),
+    data_pagamento: date = Query(..., description="Data do pagamento"),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(verificar_permissoes(["ADMIN", "FISCAL", "ARRECADACAO"]))
+):
+    """
+    Registra o pagamento de uma declaração de ISSQN
+    """
+    from app.models.tributario import ISSQNDeclaracao, StatusLancamento
+
+    declaracao = db.query(ISSQNDeclaracao).filter(ISSQNDeclaracao.id == declaracao_id).first()
+
+    if not declaracao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Declaração de ISSQN não encontrada"
+        )
+
+    if declaracao.pago:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Declaração já foi paga anteriormente"
+        )
+
+    # Registrar pagamento
+    declaracao.pago = True
+    declaracao.data_pagamento = data_pagamento
+    declaracao.valor_pago = valor_pago
+    declaracao.status = StatusLancamento.PAGO
+
+    db.commit()
+    db.refresh(declaracao)
+
+    return declaracao
+
+
+@router.get("/issqn/declaracoes/{declaracao_id}/pdf")
+async def gerar_pdf_issqn(
+    declaracao_id: UUID,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Gera PDF do DAM (Documento de Arrecadação Municipal) para ISSQN
+    """
+    from app.models.tributario import ISSQNDeclaracao
+    from app.services.pdf_service import PDFService
+    from fastapi.responses import StreamingResponse
+
+    declaracao = db.query(ISSQNDeclaracao).filter(ISSQNDeclaracao.id == declaracao_id).first()
+
+    if not declaracao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Declaração de ISSQN não encontrada"
+        )
+
+    # Buscar dados relacionados
+    estabelecimento = declaracao.estabelecimento if hasattr(declaracao, 'estabelecimento') else None
+
+    pdf_service = PDFService()
+
+    try:
+        pdf_buffer = pdf_service.gerar_dam_issqn(
+            numero_declaracao=declaracao.numero_declaracao,
+            estabelecimento_nome=estabelecimento.nome_fantasia or estabelecimento.razao_social if estabelecimento else "N/A",
+            estabelecimento_ccm=estabelecimento.inscricao_municipal if estabelecimento else "N/A",
+            mes_competencia=declaracao.mes_competencia,
+            ano_competencia=declaracao.ano_competencia,
+            receita_bruta=declaracao.receita_bruta_total,
+            deducoes=declaracao.deducoes_materiais + declaracao.outras_deducoes,
+            base_calculo=declaracao.base_calculo,
+            aliquota=declaracao.aliquota,
+            valor_issqn=declaracao.valor_issqn,
+            valor_retido=declaracao.valor_retido_terceiros,
+            valor_a_recolher=declaracao.valor_a_recolher,
+            data_vencimento=declaracao.data_vencimento,
+        )
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename=dam_issqn_{declaracao.numero_declaracao}.pdf"
+            }
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.post("/issqn/retencoes", response_model=ISSQNRetencaoResponse, status_code=status.HTTP_201_CREATED)
@@ -567,6 +830,212 @@ async def registrar_retencao_issqn(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Endpoint em desenvolvimento"
     )
+
+
+# =====================================================
+# RELATÓRIOS
+# =====================================================
+
+@router.get("/relatorios/arrecadacao")
+async def relatorio_arrecadacao(
+    tipo_tributo: str = Query(..., description="IPTU, ITBI ou ISSQN"),
+    ano: int = Query(..., description="Ano de referência"),
+    mes_inicio: int = Query(default=1, ge=1, le=12),
+    mes_fim: int = Query(default=12, ge=1, le=12),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Relatório de arrecadação por tributo e período
+    """
+    from app.models.tributario import ITBIGuia, ISSQNDeclaracao, StatusLancamento
+    from app.models.tributario import IPTULancamento
+    from sqlalchemy import func, extract
+    from decimal import Decimal
+
+    resultado = {
+        "tipo_tributo": tipo_tributo,
+        "ano": ano,
+        "periodo": f"{mes_inicio:02d}/{ano} a {mes_fim:02d}/{ano}",
+        "total_lancado": Decimal("0.00"),
+        "total_pago": Decimal("0.00"),
+        "total_pendente": Decimal("0.00"),
+        "quantidade_lancamentos": 0,
+        "quantidade_pagos": 0,
+        "quantidade_pendentes": 0,
+        "por_mes": []
+    }
+
+    if tipo_tributo == "ITBI":
+        # Arrecadação de ITBI
+        query = db.query(ITBIGuia).filter(
+            extract('year', ITBIGuia.data_emissao) == ano,
+            extract('month', ITBIGuia.data_emissao) >= mes_inicio,
+            extract('month', ITBIGuia.data_emissao) <= mes_fim
+        )
+
+        total_lancado = query.with_entities(func.sum(ITBIGuia.valor_liquido)).scalar() or Decimal("0.00")
+        total_pago = query.filter(ITBIGuia.pago == True).with_entities(func.sum(ITBIGuia.valor_pago)).scalar() or Decimal("0.00")
+
+        resultado["total_lancado"] = total_lancado
+        resultado["total_pago"] = total_pago
+        resultado["total_pendente"] = total_lancado - total_pago
+        resultado["quantidade_lancamentos"] = query.count()
+        resultado["quantidade_pagos"] = query.filter(ITBIGuia.pago == True).count()
+        resultado["quantidade_pendentes"] = query.filter(ITBIGuia.pago == False).count()
+
+        # Arrecadação por mês
+        for mes in range(mes_inicio, mes_fim + 1):
+            mes_query = query.filter(extract('month', ITBIGuia.data_emissao) == mes)
+            mes_lancado = mes_query.with_entities(func.sum(ITBIGuia.valor_liquido)).scalar() or Decimal("0.00")
+            mes_pago = mes_query.filter(ITBIGuia.pago == True).with_entities(func.sum(ITBIGuia.valor_pago)).scalar() or Decimal("0.00")
+
+            resultado["por_mes"].append({
+                "mes": mes,
+                "mes_nome": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][mes-1],
+                "total_lancado": float(mes_lancado),
+                "total_pago": float(mes_pago),
+                "quantidade": mes_query.count()
+            })
+
+    elif tipo_tributo == "ISSQN":
+        # Arrecadação de ISSQN
+        query = db.query(ISSQNDeclaracao).filter(
+            ISSQNDeclaracao.ano_competencia == ano,
+            ISSQNDeclaracao.mes_competencia >= mes_inicio,
+            ISSQNDeclaracao.mes_competencia <= mes_fim
+        )
+
+        total_lancado = query.with_entities(func.sum(ISSQNDeclaracao.valor_a_recolher)).scalar() or Decimal("0.00")
+        total_pago = query.filter(ISSQNDeclaracao.pago == True).with_entities(func.sum(ISSQNDeclaracao.valor_pago)).scalar() or Decimal("0.00")
+
+        resultado["total_lancado"] = total_lancado
+        resultado["total_pago"] = total_pago
+        resultado["total_pendente"] = total_lancado - total_pago
+        resultado["quantidade_lancamentos"] = query.count()
+        resultado["quantidade_pagos"] = query.filter(ISSQNDeclaracao.pago == True).count()
+        resultado["quantidade_pendentes"] = query.filter(ISSQNDeclaracao.pago == False).count()
+
+        # Arrecadação por mês
+        for mes in range(mes_inicio, mes_fim + 1):
+            mes_query = query.filter(ISSQNDeclaracao.mes_competencia == mes)
+            mes_lancado = mes_query.with_entities(func.sum(ISSQNDeclaracao.valor_a_recolher)).scalar() or Decimal("0.00")
+            mes_pago = mes_query.filter(ISSQNDeclaracao.pago == True).with_entities(func.sum(ISSQNDeclaracao.valor_pago)).scalar() or Decimal("0.00")
+
+            resultado["por_mes"].append({
+                "mes": mes,
+                "mes_nome": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][mes-1],
+                "total_lancado": float(mes_lancado),
+                "total_pago": float(mes_pago),
+                "quantidade": mes_query.count()
+            })
+
+    return resultado
+
+
+@router.get("/relatorios/inadimplencia")
+async def relatorio_inadimplencia(
+    tipo_tributo: str = Query(..., description="IPTU, ITBI ou ISSQN"),
+    ano: int = Query(default=None),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Relatório de inadimplência por tributo
+    """
+    from app.models.tributario import ITBIGuia, ISSQNDeclaracao
+    from sqlalchemy import func
+    from decimal import Decimal
+    from datetime import datetime
+
+    resultado = {
+        "tipo_tributo": tipo_tributo,
+        "ano": ano,
+        "total_inadimplente": Decimal("0.00"),
+        "quantidade_inadimplente": 0,
+        "vencidas": [],
+        "resumo": {
+            "ate_30_dias": {"quantidade": 0, "valor": Decimal("0.00")},
+            "31_a_60_dias": {"quantidade": 0, "valor": Decimal("0.00")},
+            "61_a_90_dias": {"quantidade": 0, "valor": Decimal("0.00")},
+            "acima_90_dias": {"quantidade": 0, "valor": Decimal("0.00")}
+        }
+    }
+
+    hoje = datetime.now().date()
+
+    if tipo_tributo == "ITBI":
+        query = db.query(ITBIGuia).filter(
+            ITBIGuia.pago == False,
+            ITBIGuia.data_vencimento < hoje
+        )
+
+        if ano:
+            query = query.filter(extract('year', ITBIGuia.data_emissao) == ano)
+
+        total = query.with_entities(func.sum(ITBIGuia.valor_liquido)).scalar() or Decimal("0.00")
+        quantidade = query.count()
+
+        resultado["total_inadimplente"] = total
+        resultado["quantidade_inadimplente"] = quantidade
+
+        # Classificar por dias de atraso
+        for guia in query.all():
+            dias_atraso = (hoje - guia.data_vencimento).days
+            valor = guia.valor_liquido
+
+            if dias_atraso <= 30:
+                resultado["resumo"]["ate_30_dias"]["quantidade"] += 1
+                resultado["resumo"]["ate_30_dias"]["valor"] += valor
+            elif dias_atraso <= 60:
+                resultado["resumo"]["31_a_60_dias"]["quantidade"] += 1
+                resultado["resumo"]["31_a_60_dias"]["valor"] += valor
+            elif dias_atraso <= 90:
+                resultado["resumo"]["61_a_90_dias"]["quantidade"] += 1
+                resultado["resumo"]["61_a_90_dias"]["valor"] += valor
+            else:
+                resultado["resumo"]["acima_90_dias"]["quantidade"] += 1
+                resultado["resumo"]["acima_90_dias"]["valor"] += valor
+
+    elif tipo_tributo == "ISSQN":
+        query = db.query(ISSQNDeclaracao).filter(
+            ISSQNDeclaracao.pago == False,
+            ISSQNDeclaracao.data_vencimento < hoje
+        )
+
+        if ano:
+            query = query.filter(ISSQNDeclaracao.ano_competencia == ano)
+
+        total = query.with_entities(func.sum(ISSQNDeclaracao.valor_a_recolher)).scalar() or Decimal("0.00")
+        quantidade = query.count()
+
+        resultado["total_inadimplente"] = total
+        resultado["quantidade_inadimplente"] = quantidade
+
+        # Classificar por dias de atraso
+        for declaracao in query.all():
+            dias_atraso = (hoje - declaracao.data_vencimento).days
+            valor = declaracao.valor_a_recolher
+
+            if dias_atraso <= 30:
+                resultado["resumo"]["ate_30_dias"]["quantidade"] += 1
+                resultado["resumo"]["ate_30_dias"]["valor"] += valor
+            elif dias_atraso <= 60:
+                resultado["resumo"]["31_a_60_dias"]["quantidade"] += 1
+                resultado["resumo"]["31_a_60_dias"]["valor"] += valor
+            elif dias_atraso <= 90:
+                resultado["resumo"]["61_a_90_dias"]["quantidade"] += 1
+                resultado["resumo"]["61_a_90_dias"]["valor"] += valor
+            else:
+                resultado["resumo"]["acima_90_dias"]["quantidade"] += 1
+                resultado["resumo"]["acima_90_dias"]["valor"] += valor
+
+    # Converter Decimals para float para JSON
+    resultado["total_inadimplente"] = float(resultado["total_inadimplente"])
+    for faixa in resultado["resumo"].values():
+        faixa["valor"] = float(faixa["valor"])
+
+    return resultado
 
 
 # =====================================================
