@@ -40,9 +40,110 @@ class StatusAutoInfracao(str, enum.Enum):
     INSCRITO_DIVIDA = "INSCRITO_DIVIDA"
 
 
+class TipoMulta(str, enum.Enum):
+    """Tipo de cálculo da multa"""
+    PERCENTUAL = "PERCENTUAL"  # Percentual sobre valor base
+    FIXA_UFM = "FIXA_UFM"  # Valor fixo em UFM
+    MISTA = "MISTA"  # Combinação de percentual + UFM
+
+
 # =====================================================
 # MODELOS
 # =====================================================
+
+class CatalogoInfracao(ModeloBase):
+    """
+    Catálogo de Infrações Fiscais
+    Infrações previstas em lei com multas configuráveis
+    """
+    __tablename__ = "fiscal.catalogo_infracoes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Identificação
+    codigo = Column(
+        String(20),
+        unique=True,
+        nullable=False,
+        index=True,
+        comment="Código único da infração (ex: IPTU-001, ISSQN-005)"
+    )
+
+    descricao = Column(
+        Text,
+        nullable=False,
+        comment="Descrição detalhada da infração"
+    )
+
+    # Base legal
+    artigo_lei = Column(
+        String(100),
+        comment="Artigo da lei que tipifica a infração"
+    )
+
+    base_legal = Column(
+        Text,
+        comment="Texto completo da base legal"
+    )
+
+    # Tipo de multa
+    tipo_multa = Column(
+        SQLEnum(TipoMulta),
+        nullable=False,
+        default=TipoMulta.FIXA_UFM
+    )
+
+    # Valores (usar conforme tipo_multa)
+    valor_multa_ufm = Column(
+        Numeric(10, 2),
+        comment="Valor em UFM (para FIXA_UFM ou parte fixa da MISTA)"
+    )
+
+    percentual_multa = Column(
+        Numeric(5, 2),
+        comment="Percentual da multa (para PERCENTUAL ou parte da MISTA)"
+    )
+
+    # Limites (em UFM)
+    valor_minimo_ufm = Column(
+        Numeric(10, 2),
+        comment="Valor mínimo da multa em UFM"
+    )
+
+    valor_maximo_ufm = Column(
+        Numeric(10, 2),
+        comment="Valor máximo da multa em UFM"
+    )
+
+    # Gravidade
+    gravidade = Column(
+        String(20),
+        default="MEDIA",
+        comment="LEVE, MEDIA, GRAVE, GRAVISSIMA"
+    )
+
+    # Reincidência
+    permite_reincidencia = Column(
+        Boolean,
+        default=True,
+        comment="Se permite cálculo de acréscimo por reincidência"
+    )
+
+    # Vigência
+    data_inicio_vigencia = Column(Date, nullable=False)
+    data_fim_vigencia = Column(Date)
+
+    # Status
+    ativo = Column(Boolean, default=True, nullable=False)
+
+    # Observações
+    observacoes = Column(Text)
+
+    __table_args__ = (
+        Index("idx_catalogo_codigo", "codigo"),
+        Index("idx_catalogo_ativo", "ativo"),
+        {"schema": "fiscal"}
+    )
 
 class OrdemFiscalizacao(ModeloBase):
     """
