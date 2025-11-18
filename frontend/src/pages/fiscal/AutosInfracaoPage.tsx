@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Paper,
@@ -34,6 +35,7 @@ const STATUS_COLORS: Record<StatusAutoInfracao, 'default' | 'warning' | 'success
 }
 
 export function AutosInfracaoPage() {
+  const navigate = useNavigate()
   const [filtros, setFiltros] = useState({
     status: '',
     data_inicio: '',
@@ -202,7 +204,12 @@ export function AutosInfracaoPage() {
               </TableRow>
             ) : (
               autos?.items.map((auto) => (
-                <TableRow key={auto.id} hover>
+                <TableRow
+                  key={auto.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/fiscal/autos-infracao/${auto.id}`)}
+                >
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">
                       {auto.numero_auto}

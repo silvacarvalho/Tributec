@@ -27,6 +27,7 @@ import { MeusEstabelecimentosPage } from './pages/portal/MeusEstabelecimentosPag
 import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
 import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
 import { AutosInfracaoPage } from './pages/fiscal/AutosInfracaoPage'
+import { DetalhesAutoPage } from './pages/fiscal/DetalhesAutoPage'
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 
 function App() {
@@ -64,6 +65,7 @@ function App() {
 
           {/* Fiscal */}
           <Route path="/fiscal/autos-infracao" element={<AutosInfracaoPage />} />
+          <Route path="/fiscal/autos-infracao/:autoId" element={<DetalhesAutoPage />} />
 
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />
