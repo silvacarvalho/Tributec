@@ -49,18 +49,12 @@ async def criar_pessoa(
     """
     Cria um novo cadastro de pessoa (física ou jurídica)
     """
-    # TODO: Implementar criação de pessoa
-    # from app.models.cadastro import Pessoa
-    # nova_pessoa = Pessoa(**pessoa.model_dump())
-    # db.add(nova_pessoa)
-    # db.commit()
-    # db.refresh(nova_pessoa)
-    # return nova_pessoa
+    from app.services.cadastro_service import PessoaService
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    service = PessoaService(db)
+    nova_pessoa = service.criar(pessoa)
+
+    return nova_pessoa
 
 
 @router.get("/pessoas", response_model=List[PessoaResponse])
@@ -75,17 +69,17 @@ async def listar_pessoas(
     """
     Lista pessoas cadastradas com filtros e paginação
     """
-    # TODO: Implementar listagem
-    # from app.models.cadastro import Pessoa
-    # query = db.query(Pessoa)
-    # if tipo_pessoa:
-    #     query = query.filter(Pessoa.tipo_pessoa == tipo_pessoa)
-    # if situacao:
-    #     query = query.filter(Pessoa.situacao_cadastral == situacao)
-    # pessoas = query.offset(skip).limit(limit).all()
-    # return pessoas
+    from app.services.cadastro_service import PessoaService
 
-    return []
+    service = PessoaService(db)
+    pessoas = service.listar(
+        skip=skip,
+        limit=limit,
+        tipo_pessoa=tipo_pessoa,
+        situacao=situacao
+    )
+
+    return pessoas
 
 
 @router.get("/pessoas/{pessoa_id}", response_model=PessoaComEnderecos)
@@ -97,17 +91,12 @@ async def obter_pessoa(
     """
     Obtém detalhes de uma pessoa específica com seus endereços
     """
-    # TODO: Implementar busca de pessoa
-    # from app.models.cadastro import Pessoa
-    # pessoa = db.query(Pessoa).filter(Pessoa.id == pessoa_id).first()
-    # if not pessoa:
-    #     raise HTTPException(status_code=404, detail="Pessoa não encontrada")
-    # return pessoa
+    from app.services.cadastro_service import PessoaService
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    service = PessoaService(db)
+    pessoa = service.obter_por_id(pessoa_id)
+
+    return pessoa
 
 
 @router.put("/pessoas/{pessoa_id}", response_model=PessoaResponse)
@@ -120,11 +109,12 @@ async def atualizar_pessoa(
     """
     Atualiza dados de uma pessoa
     """
-    # TODO: Implementar atualização
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import PessoaService
+
+    service = PessoaService(db)
+    pessoa = service.atualizar(pessoa_id, pessoa_update)
+
+    return pessoa
 
 
 @router.delete("/pessoas/{pessoa_id}", response_model=ResponseBase)
@@ -136,10 +126,14 @@ async def excluir_pessoa(
     """
     Exclui (ou inativa) uma pessoa
     """
-    # TODO: Implementar exclusão/inativação
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.services.cadastro_service import PessoaService
+
+    service = PessoaService(db)
+    service.inativar(pessoa_id)
+
+    return ResponseBase(
+        sucesso=True,
+        mensagem="Pessoa inativada com sucesso"
     )
 
 
@@ -152,11 +146,12 @@ async def buscar_por_cpf(
     """
     Busca pessoa por CPF
     """
-    # TODO: Implementar busca por CPF
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import PessoaService
+
+    service = PessoaService(db)
+    pessoa = service.obter_por_cpf(cpf)
+
+    return pessoa
 
 
 @router.get("/pessoas/cnpj/{cnpj}", response_model=PessoaResponse)
@@ -168,11 +163,12 @@ async def buscar_por_cnpj(
     """
     Busca pessoa por CNPJ
     """
-    # TODO: Implementar busca por CNPJ
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import PessoaService
+
+    service = PessoaService(db)
+    pessoa = service.obter_por_cnpj(cnpj)
+
+    return pessoa
 
 
 # =====================================================
@@ -188,11 +184,12 @@ async def criar_imovel(
     """
     Cria um novo cadastro imobiliário
     """
-    # TODO: Implementar criação de imóvel com terreno e edificações
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    novo_imovel = service.criar(imovel)
+
+    return novo_imovel
 
 
 @router.get("/imoveis", response_model=List[ImovelResponse])
@@ -208,8 +205,18 @@ async def listar_imoveis(
     """
     Lista imóveis cadastrados com filtros
     """
-    # TODO: Implementar listagem de imóveis
-    return []
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    imoveis = service.listar(
+        skip=skip,
+        limit=limit,
+        tipo_imovel=tipo_imovel,
+        tipo_uso=tipo_uso,
+        setor_fiscal_id=setor_fiscal_id
+    )
+
+    return imoveis
 
 
 @router.get("/imoveis/{imovel_id}", response_model=ImovelCompleto)
@@ -221,11 +228,12 @@ async def obter_imovel(
     """
     Obtém detalhes completos de um imóvel
     """
-    # TODO: Implementar busca de imóvel com terreno e edificações
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    imovel = service.obter_por_id(imovel_id)
+
+    return imovel
 
 
 @router.get("/imoveis/inscricao/{inscricao}", response_model=ImovelCompleto)
@@ -237,11 +245,12 @@ async def buscar_por_inscricao(
     """
     Busca imóvel por inscrição imobiliária
     """
-    # TODO: Implementar busca por inscrição
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
-    )
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    imovel = service.obter_por_inscricao(inscricao)
+
+    return imovel
 
 
 @router.put("/imoveis/{imovel_id}", response_model=ImovelResponse)

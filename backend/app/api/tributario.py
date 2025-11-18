@@ -59,21 +59,48 @@ async def calcular_iptu(
     """
     Calcula o IPTU de um imóvel para um determinado exercício
     """
-    # TODO: Implementar cálculo de IPTU
-    # from app.services.calculo_tributario import CalculadoraIPTU
-    # calculadora = CalculadoraIPTU(db)
-    # resultado = calculadora.calcular_iptu(
-    #     imovel_id=calculo.imovel_id,
-    #     ano_exercicio=calculo.ano_exercicio,
-    #     numero_parcelas=calculo.numero_parcelas,
-    #     pagamento_unico=calculo.pagamento_unico,
-    #     iptu_digital=calculo.iptu_digital
-    # )
-    # return resultado
+    from app.services.calculo_tributario import CalculadoraIPTU
+    from decimal import Decimal
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento - Cálculo de IPTU"
+    # Criar calculadora
+    calculadora = CalculadoraIPTU(db, calculo.ano_exercicio)
+
+    # Calcular IPTU
+    resultado = calculadora.calcular(str(calculo.imovel_id))
+
+    # Aplicar descontos se solicitado
+    valor_liquido = Decimal(str(resultado["valor_iptu"]))
+    desconto_pagamento_unico = Decimal("0.00")
+    desconto_iptu_digital = Decimal("0.00")
+
+    if calculo.pagamento_unico:
+        desconto_pagamento_unico = valor_liquido * Decimal("0.10")  # 10%
+
+    if calculo.iptu_digital:
+        desconto_iptu_digital = valor_liquido * Decimal("0.02")  # 2%
+
+    valor_liquido = valor_liquido - desconto_pagamento_unico - desconto_iptu_digital
+
+    # Calcular parcelas
+    valor_parcela = valor_liquido / calculo.numero_parcelas
+
+    return IPTUCalculoResponse(
+        valor_venal_terreno=Decimal(str(resultado["valor_venal_terreno"])),
+        valor_venal_edificacao=Decimal(str(resultado["valor_venal_edificacao"])),
+        valor_venal_total=Decimal(str(resultado["valor_venal_total"])),
+        fator_correcao_terreno=Decimal(str(resultado["fator_correcao_terreno"])),
+        fator_correcao_edificacao=Decimal(str(resultado.get("fator_correcao_edificacao", 0.0))),
+        fatores_aplicados=resultado.get("detalhamento_fct"),
+        aliquota_aplicada=Decimal(str(resultado["aliquota_aplicada"])),
+        tipo_uso_calculo=resultado["tipo_uso"],
+        valor_iptu=Decimal(str(resultado["valor_iptu"])),
+        desconto_pagamento_unico=desconto_pagamento_unico,
+        desconto_iptu_digital=desconto_iptu_digital,
+        desconto_anos_anteriores=Decimal("0.00"),
+        percentual_desconto_anos=0,
+        valor_liquido=valor_liquido,
+        numero_parcelas=calculo.numero_parcelas,
+        valor_parcela=valor_parcela
     )
 
 
@@ -178,15 +205,39 @@ async def calcular_itbi(
     """
     Calcula o ITBI de uma transação imobiliária
     """
-    # TODO: Implementar cálculo de ITBI
-    # from app.services.calculo_tributario import CalculadoraITBI
-    # calculadora = CalculadoraITBI(db)
-    # resultado = calculadora.calcular_itbi(calculo)
-    # return resultado
+    from app.services.calculo_tributario import CalculadoraITBI
+    from app.services.cadastro_service import ImovelService
+    from decimal import Decimal
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento - Cálculo de ITBI"
+    # Buscar valor venal do imóvel (último IPTU lançado)
+    imovel_service = ImovelService(db)
+    imovel = imovel_service.obter_por_id(calculo.imovel_id)
+
+    # TODO: Buscar valor venal do último IPTU
+    # Por enquanto, usar um valor padrão ou calcular
+    valor_venal = Decimal("100000.00")  # Temporário
+
+    # Criar calculadora e calcular ITBI
+    calculadora = CalculadoraITBI()
+    resultado = calculadora.calcular(
+        valor_declarado=calculo.valor_declarado,
+        valor_venal=valor_venal,
+        valor_financiado_sfh=calculo.valor_financiado_sfh
+    )
+
+    return ITBICalculoResponse(
+        valor_declarado=Decimal(str(resultado["valor_declarado"])),
+        valor_venal=Decimal(str(resultado["valor_venal"])),
+        valor_base_calculo=Decimal(str(resultado["base_calculo"])),
+        valor_financiado_sfh=Decimal(str(resultado["valor_financiado_sfh"])),
+        valor_nao_financiado=Decimal(str(resultado["valor_nao_financiado"])),
+        aliquota_sfh=Decimal(str(resultado["aliquota_sfh"])),
+        aliquota_normal=Decimal(str(resultado["aliquota_normal"])),
+        valor_itbi_sfh=Decimal(str(resultado["itbi_sfh"])),
+        valor_itbi_normal=Decimal(str(resultado["itbi_normal"])),
+        valor_itbi_total=Decimal(str(resultado["itbi_total"])),
+        valor_isencao=Decimal("0.00"),
+        valor_liquido=Decimal(str(resultado["itbi_total"]))
     )
 
 
@@ -251,10 +302,31 @@ async def calcular_issqn(
     """
     Calcula o ISSQN de um período
     """
-    # TODO: Implementar cálculo de ISSQN
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento - Cálculo de ISSQN"
+    from app.services.calculo_tributario import CalculadoraISSQN
+    from app.core.config import settings
+    from decimal import Decimal
+
+    # Criar calculadora
+    calculadora = CalculadoraISSQN(valor_ufm=Decimal(str(settings.UFM_VALOR)))
+
+    # Calcular ISSQN no regime normal
+    resultado = calculadora.calcular_regime_normal(
+        receita_bruta=calculo.receita_bruta_total,
+        deducoes_permitidas=calculo.deducoes_materiais + calculo.outras_deducoes
+    )
+
+    # Considerar retenções
+    valor_a_recolher = Decimal(str(resultado["issqn"])) - calculo.valor_retido_terceiros
+
+    return ISSQNCalculoResponse(
+        receita_bruta_total=Decimal(str(resultado["receita_bruta"])),
+        deducoes_materiais=calculo.deducoes_materiais,
+        outras_deducoes=calculo.outras_deducoes,
+        base_calculo=Decimal(str(resultado["base_calculo"])),
+        aliquota=Decimal(str(resultado["aliquota"])),
+        valor_issqn=Decimal(str(resultado["issqn"])),
+        valor_retido_terceiros=calculo.valor_retido_terceiros,
+        valor_a_recolher=valor_a_recolher
     )
 
 
