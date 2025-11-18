@@ -123,6 +123,10 @@ tags_metadata = [
         "name": "DTD - Domicílio Tributário Digital",
         "description": "Caixa postal eletrônica do contribuinte para notificações oficiais",
     },
+    {
+        "name": "Portal do Contribuinte",
+        "description": "Portal de autoatendimento para consulta de débitos, imóveis, parcelamentos e serviços",
+    },
 ]
 
 # Criação da aplicação FastAPI
@@ -188,12 +192,14 @@ from app.api.auth import router as auth_router
 from app.api.cadastro import router as cadastro_router
 from app.api.tributario import router as tributario_router
 from app.api.dtd import router as dtd_router
+from app.api.portal import router as portal_router
 
 # Incluir routers na aplicação
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(cadastro_router, prefix="/api/v1")
 app.include_router(tributario_router, prefix="/api/v1")
 app.include_router(dtd_router, prefix="/api/v1")
+app.include_router(portal_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
