@@ -2,7 +2,8 @@
  * Página de Cálculo e Declaração de ISSQN
  * ISSQN - Imposto sobre Serviços de Qualquer Natureza
  */
-import { useState } from 'react';
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import {
   Box,
   Typography,
@@ -38,6 +39,8 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { tributarioService } from '@/services/tributarioService';
 import { estabelecimentoService } from '@/services/estabelecimentoService';
+import { PrintableDocument } from '@/components/common/PrintableDocument';
+import { ISSQNDamPrintable } from '@/components/tributario/ISSQNDamPrintable';
 
 interface ISSQNCalculoData {
   estabelecimento_id: string;
@@ -112,6 +115,7 @@ export function ISSQNPage() {
   const [valorFixoUFM, setValorFixoUFM] = useState<string>('');
   const [quantidadeProfissionais, setQuantidadeProfissionais] = useState<string>('');
   const [calculoResultado, setCalculoResultado] = useState<ISSQNCalculoResult | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Buscar estabelecimentos para autocomplete
   const { data: estabelecimentosData, isLoading: isLoadingEstabelecimentos } = useQuery({
@@ -452,7 +456,8 @@ export function ISSQNPage() {
                         <Button
                           variant="outlined"
                           startIcon={<PrintIcon />}
-                          onClick={() => toast.info('Funcionalidade em desenvolvimento')}
+                          onClick={() => setPrintDialogOpen(true)}
+                          disabled={!estabelecimentoSelecionado}
                         >
                           Imprimir DAM
                         </Button>
@@ -576,6 +581,28 @@ export function ISSQNPage() {
           )}
         </Grid>
       </Grid>
+
+      {/* Dialog para impressão */}
+      <Dialog
+        open={printDialogOpen}
+        onClose={() => setPrintDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>DAM - ISSQN</DialogTitle>
+        <DialogContent>
+          {calculoResultado && estabelecimentoSelecionado && (
+            <PrintableDocument title="DAM - ISSQN" buttonText="Imprimir DAM">
+              <ISSQNDamPrintable
+                estabelecimento={estabelecimentoSelecionado}
+                competencia={{ mes: mesCompetencia, ano: anoCompetencia }}
+                regimeTributacao={regimeTributacao}
+                calculo={calculoResultado}
+              />
+            </PrintableDocument>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

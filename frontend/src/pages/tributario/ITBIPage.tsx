@@ -2,7 +2,8 @@
  * Página de Cálculo e Emissão de ITBI
  * ITBI - Imposto sobre Transmissão de Bens Imóveis
  */
-import { useState } from 'react';
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import {
   Box,
   Typography,
@@ -35,6 +36,8 @@ import { toast } from 'react-toastify';
 import { tributarioService } from '@/services/tributarioService';
 import { imovelService } from '@/services/imovelService';
 import { pessoaService } from '@/services/pessoaService';
+import { PrintableDocument } from '@/components/common/PrintableDocument';
+import { ITBIGuiaPrintable } from '@/components/tributario/ITBIGuiaPrintable';
 
 interface ITBICalculoData {
   imovel_id: string;
@@ -87,6 +90,7 @@ export function ITBIPage() {
   const [valorFinanciado, setValorFinanciado] = useState<string>('0');
   const [tipoTransmissao, setTipoTransmissao] = useState<string>('COMPRA_VENDA');
   const [calculoResultado, setCalculoResultado] = useState<ITBICalculoResult | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Buscar imóveis para autocomplete
   const { data: imoveisData, isLoading: isLoadingImoveis } = useQuery({
@@ -368,9 +372,10 @@ export function ITBIPage() {
                         <Button
                           variant="outlined"
                           startIcon={<PrintIcon />}
-                          onClick={() => toast.info('Funcionalidade em desenvolvimento')}
+                          onClick={() => setPrintDialogOpen(true)}
+                          disabled={!imovelSelecionado || !transmitente || !adquirente}
                         >
-                          Imprimir
+                          Imprimir Guia
                         </Button>
                       </>
                     )}
@@ -500,6 +505,29 @@ export function ITBIPage() {
           )}
         </Grid>
       </Grid>
+
+      {/* Dialog para impressão */}
+      <Dialog
+        open={printDialogOpen}
+        onClose={() => setPrintDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Guia de ITBI</DialogTitle>
+        <DialogContent>
+          {calculoResultado && imovelSelecionado && transmitente && adquirente && (
+            <PrintableDocument title="Guia de ITBI" buttonText="Imprimir Guia">
+              <ITBIGuiaPrintable
+                imovel={imovelSelecionado}
+                transmitente={transmitente}
+                adquirente={adquirente}
+                tipoTransmissao={tipoTransmissao}
+                calculo={calculoResultado}
+              />
+            </PrintableDocument>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }
