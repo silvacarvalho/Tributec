@@ -31,7 +31,7 @@ from app.schemas.cadastro import (
     LogradouroCreate,
     LogradouroResponse,
 )
-from app.schemas.base import ResponseBase, ResponsePaginado
+from app.schemas.base import ResponseBase, ResponsePaginado, criar_resposta_paginada
 
 router = APIRouter(prefix="/cadastro", tags=["Cadastros"])
 
@@ -57,7 +57,7 @@ async def criar_pessoa(
     return nova_pessoa
 
 
-@router.get("/pessoas", response_model=List[PessoaResponse])
+@router.get("/pessoas")
 async def listar_pessoas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -72,14 +72,15 @@ async def listar_pessoas(
     from app.services.cadastro_service import PessoaService
 
     service = PessoaService(db)
-    pessoas = service.listar(
+    pessoas, total = service.listar(
         skip=skip,
         limit=limit,
         tipo_pessoa=tipo_pessoa,
         situacao=situacao
     )
 
-    return pessoas
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=pessoas, total=total, pagina=pagina, limite=limit)
 
 
 @router.get("/pessoas/{pessoa_id}", response_model=PessoaComEnderecos)
@@ -192,7 +193,7 @@ async def criar_imovel(
     return novo_imovel
 
 
-@router.get("/imoveis", response_model=List[ImovelResponse])
+@router.get("/imoveis")
 async def listar_imoveis(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -208,7 +209,7 @@ async def listar_imoveis(
     from app.services.cadastro_service import ImovelService
 
     service = ImovelService(db)
-    imoveis = service.listar(
+    imoveis, total = service.listar(
         skip=skip,
         limit=limit,
         tipo_imovel=tipo_imovel,
@@ -216,7 +217,8 @@ async def listar_imoveis(
         setor_fiscal_id=setor_fiscal_id
     )
 
-    return imoveis
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=imoveis, total=total, pagina=pagina, limite=limit)
 
 
 @router.get("/imoveis/{imovel_id}", response_model=ImovelCompleto)
@@ -292,7 +294,7 @@ async def criar_estabelecimento(
     return novo_estabelecimento
 
 
-@router.get("/estabelecimentos", response_model=List[EstabelecimentoResponse])
+@router.get("/estabelecimentos")
 async def listar_estabelecimentos(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -306,13 +308,14 @@ async def listar_estabelecimentos(
     from app.services.cadastro_service import EstabelecimentoService
 
     service = EstabelecimentoService(db)
-    estabelecimentos = service.listar(
+    estabelecimentos, total = service.listar(
         skip=skip,
         limit=limit,
         regime_issqn=regime_issqn
     )
 
-    return estabelecimentos
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=estabelecimentos, total=total, pagina=pagina, limite=limit)
 
 
 @router.get("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse)
@@ -353,7 +356,7 @@ async def criar_logradouro(
     return novo_logradouro
 
 
-@router.get("/logradouros", response_model=List[LogradouroResponse])
+@router.get("/logradouros")
 async def listar_logradouros(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -368,11 +371,12 @@ async def listar_logradouros(
     from app.services.cadastro_service import LogradouroService
 
     service = LogradouroService(db)
-    logradouros = service.listar(
+    logradouros, total = service.listar(
         skip=skip,
         limit=limit,
         nome=nome,
         bairro=bairro
     )
 
-    return logradouros
+    pagina = (skip // limit) + 1 if limit > 0 else 1
+    return criar_resposta_paginada(dados=logradouros, total=total, pagina=pagina, limite=limit)

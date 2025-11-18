@@ -109,7 +109,7 @@ class PessoaService:
         limit: int = 20,
         tipo_pessoa: Optional[str] = None,
         situacao: Optional[str] = None
-    ) -> List[Pessoa]:
+    ) -> tuple[List[Pessoa], int]:
         """
         Lista pessoas com filtros e paginação
 
@@ -120,7 +120,7 @@ class PessoaService:
             situacao: Filtrar por situação cadastral
 
         Returns:
-            Lista de pessoas
+            Tupla (lista de pessoas, total de registros)
         """
         query = self.db.query(Pessoa)
 
@@ -130,7 +130,13 @@ class PessoaService:
         if situacao:
             query = query.filter(Pessoa.situacao_cadastral == situacao)
 
-        return query.offset(skip).limit(limit).all()
+        # Contar total antes de aplicar paginação
+        total = query.count()
+
+        # Aplicar paginação
+        pessoas = query.offset(skip).limit(limit).all()
+
+        return pessoas, total
 
     def obter_por_id(self, pessoa_id: UUID) -> Pessoa:
         """
@@ -330,7 +336,7 @@ class ImovelService:
         tipo_imovel: Optional[str] = None,
         tipo_uso: Optional[str] = None,
         setor_fiscal_id: Optional[int] = None
-    ) -> List[Imovel]:
+    ) -> tuple[List[Imovel], int]:
         """
         Lista imóveis com filtros e paginação
 
@@ -342,7 +348,7 @@ class ImovelService:
             setor_fiscal_id: Filtrar por setor fiscal
 
         Returns:
-            Lista de imóveis
+            Tupla (lista de imóveis, total de registros)
         """
         query = self.db.query(Imovel)
 
@@ -355,7 +361,10 @@ class ImovelService:
         if setor_fiscal_id:
             query = query.filter(Imovel.setor_fiscal_id == setor_fiscal_id)
 
-        return query.offset(skip).limit(limit).all()
+        total = query.count()
+        imoveis = query.offset(skip).limit(limit).all()
+
+        return imoveis, total
 
     def obter_por_id(self, imovel_id: UUID) -> Imovel:
         """
@@ -494,7 +503,7 @@ class EstabelecimentoService:
         skip: int = 0,
         limit: int = 20,
         regime_issqn: Optional[str] = None
-    ) -> List[Estabelecimento]:
+    ) -> tuple[List[Estabelecimento], int]:
         """
         Lista estabelecimentos com filtros e paginação
         """
@@ -503,7 +512,10 @@ class EstabelecimentoService:
         if regime_issqn:
             query = query.filter(Estabelecimento.regime_issqn == regime_issqn)
 
-        return query.offset(skip).limit(limit).all()
+        total = query.count()
+        estabelecimentos = query.offset(skip).limit(limit).all()
+
+        return estabelecimentos, total
 
     def obter_por_id(self, estabelecimento_id: UUID) -> Estabelecimento:
         """
@@ -547,7 +559,7 @@ class LogradouroService:
         limit: int = 20,
         nome: Optional[str] = None,
         bairro: Optional[str] = None
-    ) -> List[Logradouro]:
+    ) -> tuple[List[Logradouro], int]:
         """
         Lista logradouros com filtros
         """
@@ -559,4 +571,7 @@ class LogradouroService:
         if bairro:
             query = query.filter(Logradouro.bairro.ilike(f"%{bairro}%"))
 
-        return query.offset(skip).limit(limit).all()
+        total = query.count()
+        logradouros = query.offset(skip).limit(limit).all()
+
+        return logradouros, total
