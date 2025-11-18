@@ -117,3 +117,87 @@ export interface ImovelCreate {
 export interface ImovelUpdate extends Partial<ImovelCreate> {
   ativo?: boolean
 }
+
+// Logradouros
+
+export type TipoLogradouro =
+  | 'RUA'
+  | 'AVENIDA'
+  | 'TRAVESSA'
+  | 'ALAMEDA'
+  | 'RODOVIA'
+  | 'ESTRADA'
+  | 'PRACA'
+  | 'LARGO'
+  | 'VIELA'
+  | 'OUTRO'
+
+export interface Logradouro {
+  id: number
+  tipo_logradouro: TipoLogradouro
+  nome: string
+  bairro: string
+  cep?: string
+  setor_fiscal?: number
+  ativo: boolean
+  observacoes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface LogradouroCreate {
+  tipo_logradouro: TipoLogradouro
+  nome: string
+  bairro: string
+  cep?: string
+  setor_fiscal?: number
+  observacoes?: string
+}
+
+export interface LogradouroUpdate extends Partial<LogradouroCreate> {
+  ativo?: boolean
+}
+
+// Estabelecimentos
+
+export interface Estabelecimento {
+  id: string
+  proprietario_id: string
+  proprietario?: Pessoa
+  inscricao_municipal: string
+  nome_fantasia: string
+  atividade_principal: string
+  atividades_secundarias?: string[]
+  cnae: string
+  area_estabelecimento?: number
+  numero_funcionarios?: number
+  data_abertura?: string
+  logradouro_id?: number
+  logradouro?: Logradouro
+  numero?: string
+  complemento?: string
+  observacoes?: string
+  ativo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface EstabelecimentoCreate {
+  proprietario_id: string
+  inscricao_municipal: string
+  nome_fantasia: string
+  atividade_principal: string
+  atividades_secundarias?: string[]
+  cnae: string
+  area_estabelecimento?: number
+  numero_funcionarios?: number
+  data_abertura?: string
+  logradouro_id?: number
+  numero?: string
+  complemento?: string
+  observacoes?: string
+}
+
+export interface EstabelecimentoUpdate extends Partial<EstabelecimentoCreate> {
+  ativo?: boolean
+}

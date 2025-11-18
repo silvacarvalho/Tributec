@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material'
+import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/material'
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -8,10 +8,21 @@ import {
   Assignment as AssignmentIcon,
   AccountBalance as AccountBalanceIcon,
   Logout as LogoutIcon,
+  Description as DescriptionIcon,
+  Receipt as ReceiptIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon,
+  Business as BusinessIcon,
+  Payment as PaymentIcon,
+  Settings as SettingsIcon,
+  ExpandLess,
+  ExpandMore,
+  Email as EmailIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useThemeMode } from '@/contexts/ThemeContext'
 
 interface LayoutProps {
   children: ReactNode
@@ -23,6 +34,7 @@ export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
   const { logout, user } = useAuthStore()
+  const { mode, toggleTheme } = useThemeMode()
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -37,7 +49,13 @@ export function Layout({ children }: LayoutProps) {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Pessoas', icon: <PeopleIcon />, path: '/cadastro/pessoas' },
     { text: 'Imóveis', icon: <HomeIcon />, path: '/cadastro/imoveis' },
+    { text: 'Estabelecimentos', icon: <BusinessIcon />, path: '/cadastro/estabelecimentos' },
     { text: 'Calcular IPTU', icon: <AssignmentIcon />, path: '/tributario/iptu/calcular' },
+    { text: 'ITBI', icon: <DescriptionIcon />, path: '/tributario/itbi' },
+    { text: 'ISSQN', icon: <ReceiptIcon />, path: '/tributario/issqn' },
+    { text: 'Parcelamentos', icon: <PaymentIcon />, path: '/arrecadacao/parcelamentos' },
+    { text: 'DTD', icon: <EmailIcon />, path: '/admin/dtd' },
+    { text: 'Alíquotas', icon: <SettingsIcon />, path: '/configuracoes/aliquotas' },
   ]
 
   const drawer = (
@@ -91,6 +109,11 @@ export function Layout({ children }: LayoutProps) {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Sistema de Gestão Tributária Municipal
           </Typography>
+          <Tooltip title={mode === 'light' ? 'Modo escuro' : 'Modo claro'}>
+            <IconButton color="inherit" onClick={toggleTheme} sx={{ mr: 2 }}>
+              {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+            </IconButton>
+          </Tooltip>
           <Typography variant="body2">
             {user?.nome || user?.email}
           </Typography>

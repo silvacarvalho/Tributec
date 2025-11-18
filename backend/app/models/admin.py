@@ -144,35 +144,63 @@ class Perfil(ModeloBase):
     )
 
 
-class ParametroFiscal(ModeloBase):
+class ParametroSistema(ModeloBase):
     """
-    Parâmetros Fiscais e de Sistema
-    UFM, Alíquotas, Prazos, etc.
+    Parâmetros Configuráveis do Sistema
+    Usado por todos os módulos: Fiscal, Tributário, Arrecadação, etc.
     """
-    __tablename__ = "admin.parametros_fiscais"
+    __tablename__ = "admin.parametros_sistema"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Chave do parâmetro
+    # ============ ORGANIZAÇÃO ============
+    modulo = Column(
+        String(50),
+        nullable=False,
+        index=True,
+        comment="Módulo do sistema: FISCAL, TRIBUTARIO, ARRECADACAO, CADASTRO, GERAL"
+    )
+
+    categoria = Column(
+        String(100),
+        index=True,
+        comment="Subcategoria dentro do módulo (ex: MULTAS, PRAZOS, VALORES)"
+    )
+
+    # ============ IDENTIFICAÇÃO ============
     chave = Column(
         String(100),
         unique=True,
         nullable=False,
         index=True,
-        comment="Chave única do parâmetro (ex: UFM_VALOR)"
+        comment="Chave única (ex: FISCAL.UFM_VALOR, FISCAL.PRAZO_DEFESA)"
     )
 
-    # Descrição
-    descricao = Column(String(200), nullable=False)
+    nome_exibicao = Column(
+        String(200),
+        nullable=False,
+        comment="Nome amigável para exibição na UI"
+    )
 
-    # Tipo de valor
+    descricao = Column(
+        Text,
+        nullable=False,
+        comment="Descrição detalhada do parâmetro"
+    )
+
+    texto_ajuda = Column(
+        Text,
+        comment="Texto de ajuda para popover/tooltip na UI"
+    )
+
+    # ============ TIPO E VALOR ============
     tipo_valor = Column(
         String(20),
         nullable=False,
-        comment="STRING, INTEGER, DECIMAL, BOOLEAN, DATE, JSON"
+        comment="STRING, INTEGER, DECIMAL, BOOLEAN, DATE, JSON, PERCENT"
     )
 
-    # Valor
+    # Múltiplas colunas para diferentes tipos
     valor_string = Column(String(500))
     valor_inteiro = Column(Integer)
     valor_decimal = Column(Numeric(15, 6))
@@ -180,24 +208,59 @@ class ParametroFiscal(ModeloBase):
     valor_data = Column(Date)
     valor_json = Column(JSONB)
 
-    # Ano de vigência (para parâmetros anuais)
-    ano_vigencia = Column(Integer, comment="Ano de vigência (null = geral)")
+    # ============ VALIDAÇÕES ============
+    validacoes = Column(
+        JSONB,
+        comment="Regras de validação: min, max, regex, opcoes, unidade"
+    )
 
-    # Editável
+    # ============ VIGÊNCIA ============
+    ano_vigencia = Column(
+        Integer,
+        index=True,
+        comment="Ano de vigência (null = válido para todos os anos)"
+    )
+
+    data_inicio_vigencia = Column(Date, comment="Data de início da vigência")
+    data_fim_vigencia = Column(Date, comment="Data de fim da vigência")
+
+    # ============ CONTROLE ============
+    obrigatorio = Column(
+        Boolean,
+        default=False,
+        comment="Parâmetro obrigatório para funcionamento do módulo"
+    )
+
     editavel = Column(
         Boolean,
         default=True,
         comment="Pode ser editado via interface"
     )
 
-    # Observações
+    ordem_exibicao = Column(
+        Integer,
+        default=0,
+        comment="Ordem de exibição na UI"
+    )
+
+    # ============ REFERÊNCIA LEGAL ============
+    base_legal = Column(
+        Text,
+        comment="Lei/artigo que fundamenta o parâmetro"
+    )
+
     observacoes = Column(Text)
 
     __table_args__ = (
+        Index("idx_parametros_modulo_categoria", "modulo", "categoria"),
         Index("idx_parametros_chave", "chave"),
         Index("idx_parametros_ano", "ano_vigencia"),
         {"schema": "admin"}
     )
+
+
+# Alias para compatibilidade retroativa
+ParametroFiscal = ParametroSistema
 
 
 class Certidao(ModeloBase):
@@ -408,6 +471,34 @@ class DTDMensagem(ModeloBase):
         Index("idx_dtd_mensagens_domicilio", "domicilio_id"),
         Index("idx_dtd_mensagens_data", "data_envio"),
         Index("idx_dtd_mensagens_lida", "lida"),
+        {"schema": "admin"}
+    )
+
+
+class TokenBlacklist(ModeloBase):
+    """
+    Blacklist de Tokens JWT
+    Tokens invalidados (logout) antes da expiração natural
+    """
+    __tablename__ = "admin.token_blacklist"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Token JWT
+    token = Column(Text, nullable=False, unique=True, index=True)
+
+    # Data de adição à blacklist
+    data_adicao = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Data de expiração do token
+    expira_em = Column(DateTime, nullable=False, index=True)
+
+    # Motivo (opcional)
+    motivo = Column(String(200), comment="Motivo da invalidação (opcional)")
+
+    __table_args__ = (
+        Index("idx_token_blacklist_token", "token"),
+        Index("idx_token_blacklist_expira", "expira_em"),
         {"schema": "admin"}
     )
 

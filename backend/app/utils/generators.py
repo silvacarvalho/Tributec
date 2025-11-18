@@ -239,3 +239,38 @@ def gerar_numero_certidao(
     sequencial = str(int(datetime.now().timestamp()) % 1000000).zfill(6)
 
     return f"{tipo_codigo}/{sequencial}/{ano}"
+
+
+
+def gerar_numero_lancamento(ano_exercicio: int, tipo_tributo: str) -> str:
+    """
+    Gera número genérico de lançamento
+
+    Formato: TTAAAANNNNNNNN
+    - TT: Tipo de tributo (IP=IPTU, IT=ITBI, IS=ISSQN)
+    - AAAA: Ano do exercício
+    - NNNNNNNN: Sequencial do ano
+
+    Args:
+        ano_exercicio: Ano do exercício
+        tipo_tributo: Tipo de tributo
+
+    Returns:
+        Número do lançamento
+    """
+    # Mapeamento de tipos
+    tipos = {
+        "IPTU": "IP",
+        "ITBI": "IT",
+        "ISSQN": "IS",
+        "TAXA": "TX"
+    }
+
+    tipo_codigo = tipos.get(tipo_tributo, "XX")
+
+    # TODO: Buscar sequencial anual no banco
+    # Por enquanto, usar timestamp
+    sequencial = str(int(datetime.now().timestamp()) % 100000000).zfill(8)
+
+    return f"{tipo_codigo}{ano_exercicio}{sequencial}"
+

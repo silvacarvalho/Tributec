@@ -146,7 +146,27 @@ async def get_current_user(
     """
     Dependency para obter o usuário atual autenticado a partir do token JWT
     """
+    from app.models.admin import Usuario, TokenBlacklist
+    from sqlalchemy import and_
+    from datetime import datetime
+
     token = credentials.credentials
+
+    # Verificar se o token está na blacklist
+    token_blacklisted = db.query(TokenBlacklist).filter(
+        and_(
+            TokenBlacklist.token == token,
+            TokenBlacklist.expira_em > datetime.utcnow()
+        )
+    ).first()
+
+    if token_blacklisted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido (logout realizado)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     payload = decodificar_token(token)
 
     if payload is None:
@@ -164,18 +184,38 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Aqui você buscaria o usuário no banco de dados
-    # from app.models.admin import Usuario
-    # usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-    # if usuario is None or not usuario.ativo:
-    #     raise HTTPException(status_code=401, detail="Usuário inválido ou inativo")
-    # return usuario
+    # Buscar usuário no banco de dados
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
 
-    # Por enquanto, retorna apenas os dados do payload
+    if usuario is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário não encontrado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not usuario.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo"
+        )
+
+    if usuario.bloqueado:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Usuário bloqueado. Motivo: {usuario.motivo_bloqueio}"
+        )
+
+    # Retornar dados do usuário com perfis
+    perfis = [perfil.slug for perfil in usuario.perfis]
+
     return {
-        "id": usuario_id,
-        "email": payload.get("email"),
-        "perfis": payload.get("perfis", [])
+        "id": str(usuario.id),
+        "email": usuario.email,
+        "nome_completo": usuario.nome_completo,
+        "username": usuario.username,
+        "perfis": perfis,
+        "usuario_obj": usuario  # Objeto completo para uso em endpoints
     }
 
 

@@ -21,8 +21,27 @@ export interface ListImoveisResponse {
 
 export const imovelService = {
   async listar(params?: ListImoveisParams): Promise<ListImoveisResponse> {
-    const response = await api.get('/cadastro/imoveis', { params })
-    return response.data
+    // Convert pagina/limite to skip/limit for backend
+    const skip = params?.pagina ? (params.pagina - 1) * (params.limite || 20) : 0
+    const limit = params?.limite || 20
+
+    const backendParams = {
+      skip,
+      limit,
+      tipo_imovel: params?.tipo_imovel_id,
+      setor_fiscal_id: params?.setor_fiscal_id,
+    }
+
+    const response = await api.get('/cadastro/imoveis', { params: backendParams })
+
+    // Transform backend response to frontend format
+    return {
+      itens: response.data.dados,
+      total: response.data.paginacao.total_itens,
+      pagina: response.data.paginacao.pagina_atual,
+      limite: response.data.paginacao.itens_por_pagina,
+      total_paginas: response.data.paginacao.total_paginas,
+    }
   },
 
   async obter(id: string): Promise<Imovel> {

@@ -19,8 +19,27 @@ export interface ListPessoasResponse {
 
 export const pessoaService = {
   async listar(params?: ListPessoasParams): Promise<ListPessoasResponse> {
-    const response = await api.get('/cadastro/pessoas', { params })
-    return response.data
+    // Convert pagina/limite to skip/limit for backend
+    const skip = params?.pagina ? (params.pagina - 1) * (params.limite || 20) : 0
+    const limit = params?.limite || 20
+
+    const backendParams = {
+      skip,
+      limit,
+      tipo_pessoa: params?.tipo_pessoa,
+      situacao: params?.ativo !== undefined ? (params.ativo ? 'ATIVO' : 'INATIVO') : undefined,
+    }
+
+    const response = await api.get('/cadastro/pessoas', { params: backendParams })
+
+    // Transform backend response to frontend format
+    return {
+      itens: response.data.dados,
+      total: response.data.paginacao.total_itens,
+      pagina: response.data.paginacao.pagina_atual,
+      limite: response.data.paginacao.itens_por_pagina,
+      total_paginas: response.data.paginacao.total_paginas,
+    }
   },
 
   async obter(id: string): Promise<Pessoa> {

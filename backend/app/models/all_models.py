@@ -58,7 +58,7 @@ from app.models.divida_ativa import (
 # Módulo Administrativo
 from app.models.admin import (
     TipoCertidao,
-    Usuario, Perfil, ParametroFiscal, Certidao,
+    Usuario, Perfil, TokenBlacklist, ParametroFiscal, Certidao,
     DomicilioTributarioDigital, DTDMensagem, AuditoriaLog
 )
 
@@ -118,6 +118,6 @@ __all__ = [
     "TipoCertidao",
 
     # Administrativo - Models
-    "Usuario", "Perfil", "ParametroFiscal", "Certidao",
+    "Usuario", "Perfil", "TokenBlacklist", "ParametroFiscal", "Certidao",
     "DomicilioTributarioDigital", "DTDMensagem", "AuditoriaLog",
 ]
