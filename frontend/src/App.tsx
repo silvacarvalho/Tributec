@@ -9,6 +9,8 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { Dashboard } from './pages/Dashboard'
 import { PessoasListPage } from './pages/cadastro/PessoasListPage'
 import { ImoveisListPage } from './pages/cadastro/ImoveisListPage'
+import { LogradourosListPage } from './pages/cadastro/LogradourosListPage'
+import { EstabelecimentosListPage } from './pages/cadastro/EstabelecimentosListPage'
 import { CalculoIPTUPage } from './pages/tributario/CalculoIPTUPage'
 import { ITBIPage } from './pages/tributario/ITBIPage'
 import { ISSQNPage } from './pages/tributario/ISSQNPage'
@@ -34,6 +36,8 @@ function App() {
           {/* Cadastros */}
           <Route path="/cadastro/pessoas" element={<PessoasListPage />} />
           <Route path="/cadastro/imoveis" element={<ImoveisListPage />} />
+          <Route path="/cadastro/logradouros" element={<LogradourosListPage />} />
+          <Route path="/cadastro/estabelecimentos" element={<EstabelecimentosListPage />} />
 
           {/* Tributário */}
           <Route path="/tributario/iptu/calcular" element={<CalculoIPTUPage />} />
