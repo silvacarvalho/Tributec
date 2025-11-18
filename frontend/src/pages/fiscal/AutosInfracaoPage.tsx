@@ -18,6 +18,7 @@ import {
 import { Add, Search } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fiscalService } from '../../services/fiscalService'
+import { LavrarAutoDialog } from '../../components/fiscal/LavrarAutoDialog'
 import type { StatusAutoInfracao } from '../../types/fiscal'
 
 const STATUS_COLORS: Record<StatusAutoInfracao, 'default' | 'warning' | 'success' | 'error' | 'info'> = {
@@ -38,6 +39,7 @@ export function AutosInfracaoPage() {
     data_inicio: '',
     data_fim: ''
   })
+  const [dialogAberto, setDialogAberto] = useState(false)
 
   const { data: autos, isLoading } = useQuery({
     queryKey: ['autos-infracao', filtros],
@@ -70,10 +72,13 @@ export function AutosInfracaoPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Autos de Infração</Typography>
-        <Button variant="contained" startIcon={<Add />}>
+        <Button variant="contained" startIcon={<Add />} onClick={() => setDialogAberto(true)}>
           Lavrar Auto
         </Button>
       </Box>
+
+      {/* Diálogo de Lavrar Auto */}
+      <LavrarAutoDialog open={dialogAberto} onClose={() => setDialogAberto(false)} />
 
       {/* Estatísticas */}
       <Grid container spacing={2} sx={{ mb: 3 }}>

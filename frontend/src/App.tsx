@@ -26,6 +26,8 @@ import { MeusImoveisPage } from './pages/portal/MeusImoveisPage'
 import { MeusEstabelecimentosPage } from './pages/portal/MeusEstabelecimentosPage'
 import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
 import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
+import { AutosInfracaoPage } from './pages/fiscal/AutosInfracaoPage'
+import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -60,9 +62,13 @@ function App() {
           {/* Arrecadação */}
           <Route path="/arrecadacao/parcelamentos" element={<ParcelamentosPage />} />
 
+          {/* Fiscal */}
+          <Route path="/fiscal/autos-infracao" element={<AutosInfracaoPage />} />
+
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />
           <Route path="/configuracoes/isencoes" element={<IsencoesPage />} />
+          <Route path="/configuracoes/parametros" element={<ParametrosPage />} />
 
           {/* DTD - Domicílio Tributário Digital */}
           <Route path="/admin/dtd" element={<DTDListPage />} />

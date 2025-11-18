@@ -45,9 +45,24 @@ fiscais, de arrecadação e contenciosos do município.
 * Renegociação de débitos
 * Controle de pagamentos
 
+#### 🚨 Fiscalização
+* **Autos de Infração**: Lavratura automática com cálculo de multas
+* **Catálogo de Infrações**: Infrações configuráveis por lei
+* **Workflow Completo**: Notificação, defesa, julgamento, pagamento
+* **Reincidência**: Cálculo automático de acréscimos
+* **Intimações**: Prazos e formas de notificação
+
+#### ⚙️ Parâmetros do Sistema
+* **Configuração Centralizada**: UFM, prazos, multas, descontos
+* **Multi-módulo**: FISCAL, TRIBUTARIO, ARRECADACAO, GERAL
+* **Versionamento**: Parâmetros anuais com vigência
+* **Base Legal**: Rastreabilidade de legislação
+* **Validações**: Limites min/max, unidades, opções
+
 #### 📈 Relatórios
 * Arrecadação por período
 * Inadimplência com aging buckets
+* Estatísticas de fiscalização
 * Exportação de dados
 
 ### Tecnologias
@@ -114,6 +129,14 @@ tags_metadata = [
     {
         "name": "Arrecadação - Parcelamentos",
         "description": "Parcelamentos e renegociação de débitos",
+    },
+    {
+        "name": "Fiscal",
+        "description": "Autos de infração, catálogo de infrações, intimações e fiscalização tributária",
+    },
+    {
+        "name": "Parâmetros",
+        "description": "Configuração centralizada de parâmetros do sistema (UFM, prazos, multas, descontos, etc.)",
     },
     {
         "name": "Relatórios",
@@ -193,6 +216,8 @@ from app.api.cadastro import router as cadastro_router
 from app.api.tributario import router as tributario_router
 from app.api.dtd import router as dtd_router
 from app.api.portal import router as portal_router
+from app.api.fiscal import router as fiscal_router
+from app.api.parametros import router as parametros_router
 
 # Incluir routers na aplicação
 app.include_router(auth_router, prefix="/api/v1")
@@ -200,6 +225,8 @@ app.include_router(cadastro_router, prefix="/api/v1")
 app.include_router(tributario_router, prefix="/api/v1")
 app.include_router(dtd_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")
+app.include_router(fiscal_router, prefix="/api/v1")
+app.include_router(parametros_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
