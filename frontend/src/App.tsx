@@ -20,6 +20,12 @@ import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
 import { ParcelamentosPage } from './pages/arrecadacao/ParcelamentosPage'
 import { DTDListPage } from './pages/admin/DTDListPage'
 import { DTDMensagensPage } from './pages/contribuinte/DTDMensagensPage'
+import { DashboardContribuinte } from './pages/portal/DashboardContribuinte'
+import { MeusDebitosPage } from './pages/portal/MeusDebitosPage'
+import { MeusImoveisPage } from './pages/portal/MeusImoveisPage'
+import { MeusEstabelecimentosPage } from './pages/portal/MeusEstabelecimentosPage'
+import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
+import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -61,6 +67,15 @@ function App() {
           {/* DTD - Domicílio Tributário Digital */}
           <Route path="/admin/dtd" element={<DTDListPage />} />
           <Route path="/admin/dtd/:dtdId/mensagens" element={<DTDMensagensPage />} />
+
+          {/* Portal do Contribuinte */}
+          <Route path="/portal" element={<DashboardContribuinte />} />
+          <Route path="/portal/debitos" element={<MeusDebitosPage />} />
+          <Route path="/portal/imoveis" element={<MeusImoveisPage />} />
+          <Route path="/portal/estabelecimentos" element={<MeusEstabelecimentosPage />} />
+          <Route path="/portal/parcelamentos" element={<MeusParcelamentosPage />} />
+          <Route path="/portal/cadastro" element={<MeuCadastroPage />} />
+          <Route path="/portal/dtd/:dtdId/mensagens" element={<DTDMensagensPage />} />
 
           {/* Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
