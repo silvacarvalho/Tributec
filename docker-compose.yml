@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   # Banco de Dados PostgreSQL com PostGIS
   postgres:
     image: postgis/postgis:14-3.3
-    container_name: tributec_postgres
+    container_name: tributec_postgreSQL
     environment:
-      POSTGRES_DB: tributec_db
-      POSTGRES_USER: tributec
-      POSTGRES_PASSWORD: tributec123
+      POSTGRES_DB: tributec
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -26,7 +24,7 @@ services:
   # Redis para cache e Celery
   redis:
     image: redis:7-alpine
-    container_name: tributec_redis
+    container_name: tributec_rediSQL
     ports:
       - "6379:6379"
     networks:
@@ -53,7 +51,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/tributec
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -75,7 +73,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/tributec
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -95,7 +93,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://tributec:tributec123@postgres:5432/tributec_db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/tributec
       - REDIS_HOST=redis
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
