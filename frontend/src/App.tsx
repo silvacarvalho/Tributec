@@ -10,6 +10,8 @@ import { Dashboard } from './pages/Dashboard'
 import { PessoasListPage } from './pages/cadastro/PessoasListPage'
 import { ImoveisListPage } from './pages/cadastro/ImoveisListPage'
 import { CalculoIPTUPage } from './pages/tributario/CalculoIPTUPage'
+import { ITBIPage } from './pages/tributario/ITBIPage'
+import { ISSQNPage } from './pages/tributario/ISSQNPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -35,6 +37,8 @@ function App() {
 
           {/* Tributário */}
           <Route path="/tributario/iptu/calcular" element={<CalculoIPTUPage />} />
+          <Route path="/tributario/itbi" element={<ITBIPage />} />
+          <Route path="/tributario/issqn" element={<ISSQNPage />} />
 
           {/* Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -264,19 +264,73 @@ async def calcular_itbi(
 
 
 @router.post("/itbi/guias", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/itbi/emitir-guia", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED)
 async def emitir_guia_itbi(
     guia: ITBIGuiaCreate,
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Emite uma guia de ITBI
+    Emite uma guia de ITBI para transmissão imobiliária
     """
-    # TODO: Implementar emissão de guia
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import ITBIGuia, StatusLancamento
+    from app.services.calculo_tributario import CalculadoraITBI
+    from app.services.cadastro_service import ImovelService
+    from app.utils.generators import gerar_numero_lancamento
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+
+    # Buscar valor venal do imóvel
+    imovel_service = ImovelService(db)
+    imovel = imovel_service.obter_por_id(guia.imovel_id)
+
+    # TODO: Buscar valor venal do último IPTU lançado
+    # Por enquanto, usar valor padrão ou calcular
+    valor_venal = Decimal("100000.00")  # Temporário - deveria vir do último IPTU
+
+    # Calcular ITBI
+    calculadora = CalculadoraITBI()
+    resultado = calculadora.calcular(
+        valor_declarado=guia.valor_declarado,
+        valor_venal=valor_venal,
+        valor_financiado_sfh=guia.valor_financiado_sfh
     )
+
+    # Gerar número da guia
+    numero_guia = gerar_numero_lancamento(datetime.now().year, "ITBI")
+
+    # Calcular data de vencimento (30 dias)
+    data_vencimento = datetime.now().date() + timedelta(days=30)
+
+    # Criar registro da guia
+    nova_guia = ITBIGuia(
+        numero_guia=numero_guia,
+        data_emissao=datetime.now().date(),
+        imovel_id=guia.imovel_id,
+        transmitente_id=guia.transmitente_id,
+        adquirente_id=guia.adquirente_id,
+        tipo_transmissao=guia.tipo_transmissao,
+        valor_declarado=guia.valor_declarado,
+        valor_venal=valor_venal,
+        valor_base_calculo=Decimal(str(resultado["base_calculo"])),
+        valor_financiado_sfh=guia.valor_financiado_sfh,
+        valor_nao_financiado=Decimal(str(resultado["valor_nao_financiado"])),
+        aliquota_sfh=Decimal(str(resultado["aliquota_sfh"])),
+        aliquota_normal=Decimal(str(resultado["aliquota_normal"])),
+        valor_itbi_sfh=Decimal(str(resultado["itbi_sfh"])),
+        valor_itbi_normal=Decimal(str(resultado["itbi_normal"])),
+        valor_itbi_total=Decimal(str(resultado["itbi_total"])),
+        valor_liquido=Decimal(str(resultado["itbi_total"])),
+        data_vencimento=data_vencimento,
+        pago=False,
+        status=StatusLancamento.LANCADO
+    )
+
+    db.add(nova_guia)
+    db.commit()
+    db.refresh(nova_guia)
+
+    return nova_guia
 
 
 @router.get("/itbi/guias", response_model=List[ITBIGuiaResponse])
@@ -353,19 +407,133 @@ async def calcular_issqn(
 
 
 @router.post("/issqn/declaracoes", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/issqn/declarar", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED)
 async def criar_declaracao_issqn(
     declaracao: ISSQNDeclaracaoCreate,
     db: Session = Depends(get_db),
     usuario: dict = Depends(get_current_user)
 ):
     """
-    Cria uma declaração de ISSQN
+    Cria uma declaração de ISSQN para um estabelecimento
     """
-    # TODO: Implementar criação de declaração
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint em desenvolvimento"
+    from app.models.tributario import ISSQNDeclaracao, StatusLancamento
+    from app.services.calculo_tributario import CalculadoraISSQN
+    from app.services.cadastro_service import EstabelecimentoService
+    from app.utils.generators import gerar_numero_lancamento
+    from app.core.config import settings
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+
+    # Verificar se já existe declaração para o período
+    declaracao_existente = db.query(ISSQNDeclaracao).filter(
+        ISSQNDeclaracao.estabelecimento_id == declaracao.estabelecimento_id,
+        ISSQNDeclaracao.mes_competencia == declaracao.mes_competencia,
+        ISSQNDeclaracao.ano_competencia == declaracao.ano_competencia
+    ).first()
+
+    if declaracao_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe uma declaração para este período"
+        )
+
+    # Buscar estabelecimento
+    estab_service = EstabelecimentoService(db)
+    estabelecimento = estab_service.obter_por_id(declaracao.estabelecimento_id)
+
+    # Calcular ISSQN baseado no regime
+    calculadora = CalculadoraISSQN(valor_ufm=Decimal(str(settings.UFM_VALOR)))
+
+    if declaracao.regime_tributacao == "VARIAVEL":
+        # Regime normal (variável sobre receita)
+        resultado = calculadora.calcular_regime_normal(
+            receita_bruta=declaracao.receita_bruta_total,
+            deducoes_permitidas=declaracao.deducoes_materiais + declaracao.outras_deducoes
+        )
+        base_calculo = Decimal(str(resultado["base_calculo"]))
+        aliquota = Decimal(str(resultado["aliquota"]))
+        valor_issqn = Decimal(str(resultado["issqn"]))
+
+    elif declaracao.regime_tributacao == "FIXO":
+        # Regime fixo (valor em UFM)
+        if not declaracao.valor_fixo_ufm:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Valor fixo UFM é obrigatório para regime fixo"
+            )
+        resultado = calculadora.calcular_regime_fixo(declaracao.valor_fixo_ufm)
+        base_calculo = Decimal("0.00")
+        aliquota = Decimal("0.0000")
+        valor_issqn = Decimal(str(resultado["issqn"]))
+
+    elif declaracao.regime_tributacao == "SOCIEDADE_PROFISSIONAIS":
+        # Sociedade de profissionais
+        if not declaracao.quantidade_profissionais:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quantidade de profissionais é obrigatória"
+            )
+        resultado = calculadora.calcular_sociedade_profissionais(
+            declaracao.quantidade_profissionais
+        )
+        base_calculo = Decimal("0.00")
+        aliquota = Decimal("0.0000")
+        valor_issqn = Decimal(str(resultado["issqn"]))
+
+    else:  # ESTIMATIVA
+        # Usar cálculo normal como base
+        resultado = calculadora.calcular_regime_normal(
+            receita_bruta=declaracao.receita_bruta_total,
+            deducoes_permitidas=declaracao.deducoes_materiais + declaracao.outras_deducoes
+        )
+        base_calculo = Decimal(str(resultado["base_calculo"]))
+        aliquota = Decimal(str(resultado["aliquota"]))
+        valor_issqn = Decimal(str(resultado["issqn"]))
+
+    # Calcular valor a recolher
+    valor_a_recolher = valor_issqn - declaracao.valor_retido_terceiros
+
+    # Gerar número da declaração
+    numero_declaracao = gerar_numero_lancamento(declaracao.ano_competencia, "ISSQN")
+
+    # Calcular data de vencimento (dia 10 do mês seguinte)
+    if declaracao.mes_competencia == 12:
+        mes_vencimento = 1
+        ano_vencimento = declaracao.ano_competencia + 1
+    else:
+        mes_vencimento = declaracao.mes_competencia + 1
+        ano_vencimento = declaracao.ano_competencia
+
+    data_vencimento = datetime(ano_vencimento, mes_vencimento, 10).date()
+
+    # Criar declaração
+    nova_declaracao = ISSQNDeclaracao(
+        numero_declaracao=numero_declaracao,
+        estabelecimento_id=declaracao.estabelecimento_id,
+        mes_competencia=declaracao.mes_competencia,
+        ano_competencia=declaracao.ano_competencia,
+        data_declaracao=datetime.now().date(),
+        regime_tributacao=declaracao.regime_tributacao,
+        receita_bruta_total=declaracao.receita_bruta_total,
+        deducoes_materiais=declaracao.deducoes_materiais,
+        outras_deducoes=declaracao.outras_deducoes,
+        base_calculo=base_calculo,
+        aliquota=aliquota,
+        valor_issqn=valor_issqn,
+        valor_retido_terceiros=declaracao.valor_retido_terceiros,
+        valor_a_recolher=valor_a_recolher,
+        valor_fixo_ufm=declaracao.valor_fixo_ufm,
+        quantidade_profissionais=declaracao.quantidade_profissionais,
+        data_vencimento=data_vencimento,
+        pago=False,
+        status=StatusLancamento.LANCADO
     )
+
+    db.add(nova_declaracao)
+    db.commit()
+    db.refresh(nova_declaracao)
+
+    return nova_declaracao
 
 
 @router.get("/issqn/declaracoes", response_model=List[ISSQNDeclaracaoResponse])

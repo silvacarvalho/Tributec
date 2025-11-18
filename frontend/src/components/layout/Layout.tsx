@@ -8,6 +8,8 @@ import {
   Assignment as AssignmentIcon,
   AccountBalance as AccountBalanceIcon,
   Logout as LogoutIcon,
+  Description as DescriptionIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -38,6 +40,8 @@ export function Layout({ children }: LayoutProps) {
     { text: 'Pessoas', icon: <PeopleIcon />, path: '/cadastro/pessoas' },
     { text: 'Imóveis', icon: <HomeIcon />, path: '/cadastro/imoveis' },
     { text: 'Calcular IPTU', icon: <AssignmentIcon />, path: '/tributario/iptu/calcular' },
+    { text: 'ITBI', icon: <DescriptionIcon />, path: '/tributario/itbi' },
+    { text: 'ISSQN', icon: <ReceiptIcon />, path: '/tributario/issqn' },
   ]
 
   const drawer = (
