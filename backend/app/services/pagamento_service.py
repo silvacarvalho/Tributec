@@ -13,6 +13,7 @@ from fastapi import HTTPException, status
 
 from app.models.arrecadacao import Pagamento, Debito, StatusPagamento, TipoPagamento
 from app.models.cadastro import Pessoa
+from app.services.parametro_service import ParametroService
 
 
 class PagamentoService:
@@ -20,6 +21,7 @@ class PagamentoService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.parametro_service = ParametroService(db)
 
     def gerar_pix(self, debito_id: UUID) -> Dict[str, Any]:
         """
@@ -46,9 +48,15 @@ class PagamentoService:
                 detail="Débito já está pago"
             )
 
-        # Gerar chave PIX (formato BR Code simplificado)
-        # Em produção, integrar com PSP (Banco do Brasil, Sicoob, etc)
-        chave_pix = "municipio@pix.gov.br"  # Chave PIX do município
+        # Obter chave PIX configurada (configurável)
+        try:
+            chave_pix = self.parametro_service.obter_parametro(
+                "ARRECADACAO.PAGAMENTOS.CHAVE_PIX"
+            )
+            chave_pix = str(chave_pix) if chave_pix else "municipio@pix.gov.br"
+        except ValueError:
+            chave_pix = "municipio@pix.gov.br"
+
         valor = float(debito.valor_total)
 
         # Formato PIX Copia e Cola (EMV)
@@ -70,6 +78,15 @@ class PagamentoService:
         img.save(buffer, format='PNG')
         qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
 
+        # Obter validade do PIX (configurável, em horas)
+        try:
+            validade_pix_horas = self.parametro_service.obter_parametro(
+                "ARRECADACAO.PAGAMENTOS.VALIDADE_PIX_HORAS"
+            )
+            validade_horas = int(validade_pix_horas) if validade_pix_horas else 24
+        except ValueError:
+            validade_horas = 24
+
         # Criar registro de pagamento pendente
         pagamento = Pagamento(
             debito_id=debito_id,
@@ -77,7 +94,7 @@ class PagamentoService:
             valor_pago=valor,
             status=StatusPagamento.PENDENTE,
             pix_copia_cola=pix_payload,
-            data_vencimento_pix=datetime.now() + timedelta(days=1),  # Válido por 24h
+            data_vencimento_pix=datetime.now() + timedelta(hours=validade_horas),
         )
 
         self.db.add(pagamento)
@@ -109,6 +126,23 @@ class PagamentoService:
 
         Em produção, usar biblioteca como python-brcode ou similar
         """
+        # Obter dados da prefeitura (configuráveis)
+        try:
+            nome_beneficiario = self.parametro_service.obter_parametro(
+                "GERAL.MUNICIPIO.NOME_BENEFICIARIO"
+            )
+            nome_beneficiario = str(nome_beneficiario) if nome_beneficiario else "PREFEITURA MUNICIPAL"
+        except ValueError:
+            nome_beneficiario = "PREFEITURA MUNICIPAL"
+
+        try:
+            nome_cidade = self.parametro_service.obter_parametro(
+                "GERAL.MUNICIPIO.NOME_CIDADE"
+            )
+            nome_cidade = str(nome_cidade) if nome_cidade else "CIDADE"
+        except ValueError:
+            nome_cidade = "CIDADE"
+
         # Formato EMV simplificado
         # ID 00: Payload Format Indicator
         # ID 26: Merchant Account Information (chave PIX)
@@ -120,8 +154,8 @@ class PagamentoService:
         # ID 63: CRC16
 
         payload = f"00020126{len(chave) + 14}0014BR.GOV.BCB.PIX01{len(chave)}{chave}"
-        payload += f"5204000053039865802BR59{len('PREFEITURA MUNICIPAL'):02d}PREFEITURA MUNICIPAL"
-        payload += f"60{len('CIDADE'):02d}CIDADE"
+        payload += f"5204000053039865802BR59{len(nome_beneficiario):02d}{nome_beneficiario}"
+        payload += f"60{len(nome_cidade):02d}{nome_cidade}"
         payload += f"62{len(identificador) + 8}05{len(identificador)}{identificador}"
         payload += "6304"  # CRC placeholder
 
@@ -161,6 +195,15 @@ class PagamentoService:
             Pessoa.id == debito.contribuinte_id
         ).first()
 
+        # Obter código do banco (configurável)
+        try:
+            codigo_banco = self.parametro_service.obter_parametro(
+                "ARRECADACAO.PAGAMENTOS.CODIGO_BANCO"
+            )
+            codigo_banco = str(codigo_banco) if codigo_banco else "001"
+        except ValueError:
+            codigo_banco = "001"  # Banco do Brasil (fallback)
+
         # Gerar boleto (integração com banco)
         # Em produção, integrar com API do banco (BB, Caixa, Sicoob, etc)
 
@@ -171,7 +214,6 @@ class PagamentoService:
 
         # Linha digitável (exemplo simplificado)
         # Formato: AAABC.CCCCX DDDDD.DDDDDY EEEEE.EEEEEZ K UUUUVVVVVVVVVV
-        codigo_banco = "001"  # Banco do Brasil
         moeda = "9"
 
         linha_digitavel = f"{codigo_banco}{moeda}.{nosso_numero[:5]} "
@@ -194,6 +236,23 @@ class PagamentoService:
         self.db.commit()
         self.db.refresh(pagamento)
 
+        # Obter dados do beneficiário (configuráveis)
+        try:
+            nome_beneficiario = self.parametro_service.obter_parametro(
+                "GERAL.MUNICIPIO.NOME_BENEFICIARIO"
+            )
+            nome_beneficiario = str(nome_beneficiario) if nome_beneficiario else "PREFEITURA MUNICIPAL"
+        except ValueError:
+            nome_beneficiario = "PREFEITURA MUNICIPAL"
+
+        try:
+            cnpj_beneficiario = self.parametro_service.obter_parametro(
+                "GERAL.MUNICIPIO.CNPJ"
+            )
+            cnpj_beneficiario = str(cnpj_beneficiario) if cnpj_beneficiario else "00.000.000/0001-00"
+        except ValueError:
+            cnpj_beneficiario = "00.000.000/0001-00"
+
         return {
             "pagamento_id": str(pagamento.id),
             "nosso_numero": nosso_numero,
@@ -202,8 +261,8 @@ class PagamentoService:
             "valor": valor,
             "data_vencimento": vencimento.strftime("%d/%m/%Y"),
             "beneficiario": {
-                "nome": "PREFEITURA MUNICIPAL",
-                "cnpj": "00.000.000/0001-00",
+                "nome": nome_beneficiario,
+                "cnpj": cnpj_beneficiario,
             },
             "pagador": {
                 "nome": contribuinte.nome if contribuinte.tipo_pessoa == 'F' else contribuinte.razao_social,

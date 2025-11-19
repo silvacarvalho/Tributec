@@ -18,6 +18,7 @@ from app.models.divida_ativa import (
 )
 from app.models.arrecadacao import Debito
 from app.models.cadastro import Pessoa
+from app.services.parametro_service import ParametroService
 
 
 class DividaAtivaService:
@@ -25,6 +26,7 @@ class DividaAtivaService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.parametro_service = ParametroService(db)
 
     def inscrever_em_divida_ativa(
         self,
@@ -75,8 +77,16 @@ class DividaAtivaService:
         valor_juros = debito.valor_juros or Decimal('0')
         valor_correcao = debito.valor_correcao or Decimal('0')
 
-        # Honorários advocatícios (10% padrão)
-        percentual_honorarios = Decimal('10')
+        # Honorários advocatícios (% configurável no CTM)
+        try:
+            percentual_honorarios = self.parametro_service.obter_parametro(
+                "ARRECADACAO.DIVIDA_ATIVA.PERCENTUAL_HONORARIOS"
+            )
+            percentual_honorarios = Decimal(str(percentual_honorarios)) if percentual_honorarios else Decimal('10')
+        except ValueError:
+            # Fallback para 10% se parâmetro não configurado
+            percentual_honorarios = Decimal('10')
+
         valor_honorarios = (valor_principal + valor_multa + valor_juros + valor_correcao) * (percentual_honorarios / 100)
 
         valor_total = valor_principal + valor_multa + valor_juros + valor_correcao + valor_honorarios
@@ -151,11 +161,19 @@ class DividaAtivaService:
                 detail=f"Dívida com status {divida.status} não pode ser parcelada"
             )
 
-        # Validar número de parcelas
-        if numero_parcelas < 1 or numero_parcelas > 60:
+        # Validar número de parcelas (configurável no CTM)
+        try:
+            max_parcelas = self.parametro_service.obter_parametro(
+                "ARRECADACAO.DIVIDA_ATIVA.MAX_PARCELAS"
+            )
+            max_parcelas = int(max_parcelas) if max_parcelas else 60
+        except ValueError:
+            max_parcelas = 60
+
+        if numero_parcelas < 1 or numero_parcelas > max_parcelas:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Número de parcelas deve estar entre 1 e 60"
+                detail=f"Número de parcelas deve estar entre 1 e {max_parcelas}"
             )
 
         # Calcular valores
@@ -171,8 +189,15 @@ class DividaAtivaService:
         valor_parcelar = valor_total - valor_entrada
         valor_parcela = valor_parcelar / numero_parcelas
 
-        # Valor mínimo da parcela (R$ 50,00)
-        valor_minimo_parcela = Decimal('50.00')
+        # Valor mínimo da parcela (configurável no CTM)
+        try:
+            valor_minimo_parcela = self.parametro_service.obter_parametro(
+                "ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PARCELA"
+            )
+            valor_minimo_parcela = Decimal(str(valor_minimo_parcela)) if valor_minimo_parcela else Decimal('50.00')
+        except ValueError:
+            valor_minimo_parcela = Decimal('50.00')
+
         if valor_parcela < valor_minimo_parcela:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

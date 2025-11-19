@@ -346,10 +346,15 @@ As regras implementadas usam valores padrão. Em produção, devem ser parametri
 ## ⚠️ OBSERVAÇÕES IMPORTANTES
 
 ### **1. CTM (Código Tributário Municipal):**
-As implementações de Dívida Ativa usam valores padrão. É **ESSENCIAL** parametrizar conforme o CTM de cada município:
-- Criar tabela de **Parâmetros Tributários**
-- Configurar taxas, prazos e percentuais
-- Interface de configuração para gestor
+✅ **IMPLEMENTADO!** Os módulos agora utilizam a tabela **`ParametroSistema`** centralizada:
+- ✅ **Tabela centralizada:** `admin.parametros_sistema` já existe e está sendo usada
+- ✅ **Services atualizados:** DividaAtivaService, NFSeService e PagamentoService agora usam `ParametroService`
+- ✅ **Seeds criados:** 14 novos parâmetros adicionados ao arquivo de seeds:
+  - **Dívida Ativa:** percentual de honorários, max parcelas, valor mínimo parcela, limites para protesto/execução
+  - **NFS-e:** alíquota ISS padrão, código do município, prazo de cancelamento
+  - **Pagamentos:** chave PIX, validade PIX, código do banco
+  - **Geral:** nome beneficiário, CNPJ, nome da cidade
+- 🔶 **Pendente:** Popular a tabela executando o seed e criar interface de gerenciamento para o gestor
 
 ### **2. Integrações Bancárias:**
 PIX e Boleto estão funcionais, mas precisam de integração com:
@@ -404,6 +409,114 @@ A estrutura está pronta, mas para conformidade ABRASF precisa:
 - [ ] Relatórios gerenciais
 - [ ] Gestão de usuários e permissões
 - [ ] Módulos complementares (Alvará, Ouvidoria, Transparência)
+
+---
+
+## 🔄 ATUALIZAÇÃO: PARAMETRIZAÇÃO CENTRALIZADA
+
+**Data:** 2025-11-19 (após implementação inicial)
+
+### **Problema Identificado:**
+Os services implementados (DividaAtivaService, NFSeService, PagamentoService) usavam valores hardcoded, o que não permitia configuração conforme o CTM de cada município.
+
+### **Solução Implementada:**
+
+#### **1. Uso da Tabela `ParametroSistema` Existente**
+Em vez de criar múltiplas tabelas de parâmetros, centralizamos TUDO na tabela `admin.parametros_sistema` que já existia no sistema:
+
+**Estrutura da Tabela:**
+- `modulo`: Organização por módulo (FISCAL, TRIBUTARIO, ARRECADACAO, GERAL)
+- `categoria`: Subcategoria dentro do módulo
+- `chave`: Identificador único (ex: ARRECADACAO.DIVIDA_ATIVA.PERCENTUAL_HONORARIOS)
+- `tipo_valor`: STRING, INTEGER, DECIMAL, BOOLEAN, DATE, JSON, PERCENT
+- Múltiplas colunas de valor (valor_string, valor_inteiro, valor_decimal, etc.)
+- `validacoes`: Regras em JSONB (min, max, regex, etc.)
+- `ano_vigencia`: Suporte a parâmetros que mudam por ano
+- `base_legal`: Referência ao CTM/Lei
+- `editavel`: Controle de quais parâmetros podem ser editados
+
+#### **2. Services Atualizados**
+
+**DividaAtivaService (`divida_ativa_service.py`):**
+```python
+# Antes (hardcoded):
+percentual_honorarios = Decimal('10')
+max_parcelas = 60
+valor_minimo_parcela = Decimal('50.00')
+
+# Depois (parametrizado):
+percentual_honorarios = self.parametro_service.obter_parametro(
+    "ARRECADACAO.DIVIDA_ATIVA.PERCENTUAL_HONORARIOS"
+)
+max_parcelas = self.parametro_service.obter_parametro(
+    "ARRECADACAO.DIVIDA_ATIVA.MAX_PARCELAS"
+)
+valor_minimo_parcela = self.parametro_service.obter_parametro(
+    "ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PARCELA"
+)
+```
+
+**NFSeService (`nfse_service.py`):**
+```python
+# Parametrizado:
+- aliquota_iss (FISCAL.NFSE.ALIQUOTA_ISS_PADRAO)
+- codigo_municipio (FISCAL.NFSE.CODIGO_MUNICIPIO)
+- dia_limite_cancelamento (FISCAL.NFSE.DIA_LIMITE_CANCELAMENTO)
+```
+
+**PagamentoService (`pagamento_service.py`):**
+```python
+# Parametrizado:
+- chave_pix (ARRECADACAO.PAGAMENTOS.CHAVE_PIX)
+- validade_pix (ARRECADACAO.PAGAMENTOS.VALIDADE_PIX_HORAS)
+- codigo_banco (ARRECADACAO.PAGAMENTOS.CODIGO_BANCO)
+- nome_beneficiario (GERAL.MUNICIPIO.NOME_BENEFICIARIO)
+- cnpj (GERAL.MUNICIPIO.CNPJ)
+- nome_cidade (GERAL.MUNICIPIO.NOME_CIDADE)
+```
+
+#### **3. Seeds Adicionados**
+
+Adicionados 14 novos parâmetros ao arquivo `backend/app/db/seeds/parametros_seed.py`:
+
+**Dívida Ativa (5 parâmetros):**
+1. `ARRECADACAO.DIVIDA_ATIVA.PERCENTUAL_HONORARIOS` - 10% (padrão)
+2. `ARRECADACAO.DIVIDA_ATIVA.MAX_PARCELAS` - 60 parcelas
+3. `ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PARCELA` - R$ 50,00
+4. `ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PROTESTO` - R$ 500,00
+5. `ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_EXECUCAO` - R$ 1.000,00
+
+**NFS-e (3 parâmetros):**
+1. `FISCAL.NFSE.ALIQUOTA_ISS_PADRAO` - 5%
+2. `FISCAL.NFSE.CODIGO_MUNICIPIO` - "3550308" (São Paulo - exemplo)
+3. `FISCAL.NFSE.DIA_LIMITE_CANCELAMENTO` - Dia 10
+
+**Pagamentos (3 parâmetros):**
+1. `ARRECADACAO.PAGAMENTOS.CHAVE_PIX` - "municipio@pix.gov.br"
+2. `ARRECADACAO.PAGAMENTOS.VALIDADE_PIX_HORAS` - 24 horas
+3. `ARRECADACAO.PAGAMENTOS.CODIGO_BANCO` - "001" (Banco do Brasil)
+
+**Geral (3 parâmetros):**
+1. `GERAL.MUNICIPIO.NOME_BENEFICIARIO` - "PREFEITURA MUNICIPAL"
+2. `GERAL.MUNICIPIO.CNPJ` - "00.000.000/0001-00"
+3. `GERAL.MUNICIPIO.NOME_CIDADE` - "CIDADE"
+
+#### **4. Benefícios da Solução:**
+
+✅ **Centralização:** Uma única tabela para TODOS os parâmetros do sistema
+✅ **Flexibilidade:** Suporte a múltiplos tipos de dados (string, int, decimal, boolean, json, date)
+✅ **Vigência:** Parâmetros podem variar por ano (ex: UFM muda anualmente)
+✅ **Validação:** Regras de validação em JSONB (min, max, regex)
+✅ **Base Legal:** Cada parâmetro referencia o artigo do CTM
+✅ **Controle:** Alguns parâmetros podem ser marcados como não-editáveis
+✅ **Interface Ready:** Fácil criar UI de gerenciamento (lista por módulo/categoria)
+✅ **Fallback:** Services têm valores padrão caso parâmetro não esteja configurado
+
+#### **5. Próximos Passos:**
+
+1. **Popular o banco:** Executar o seed de parâmetros no banco de dados
+2. **Interface de gerenciamento:** Criar página de administração para edição de parâmetros
+3. **Configurar por município:** Ajustar os valores conforme o CTM específico de cada cliente
 
 ---
 

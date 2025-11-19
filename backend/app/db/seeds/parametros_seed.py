@@ -615,7 +615,254 @@ PARAMETROS_ITBI = [
 
 
 # =====================================================
+# PARÂMETROS DÍVIDA ATIVA
+# =====================================================
+
+PARAMETROS_DIVIDA_ATIVA = [
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "DIVIDA_ATIVA",
+        "chave": "ARRECADACAO.DIVIDA_ATIVA.PERCENTUAL_HONORARIOS",
+        "nome_exibicao": "Percentual de Honorários Advocatícios",
+        "descricao": "Percentual de honorários advocatícios sobre o valor total da dívida inscrita",
+        "texto_ajuda": "Honorários aplicados sobre o valor total (principal + multa + juros + correção) quando o débito é inscrito em dívida ativa. Conforme CTM do município.",
+        "tipo_valor": "DECIMAL",
+        "valor_decimal": Decimal("10.00"),
+        "validacoes": {"min": 0, "max": 20, "unidade": "%"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 1,
+        "base_legal": "CTM, Art. XX - Dívida Ativa"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "DIVIDA_ATIVA",
+        "chave": "ARRECADACAO.DIVIDA_ATIVA.MAX_PARCELAS",
+        "nome_exibicao": "Número Máximo de Parcelas",
+        "descricao": "Quantidade máxima de parcelas permitidas para parcelamento de dívida ativa",
+        "texto_ajuda": "Número máximo de parcelas que podem ser concedidas no parcelamento de débitos inscritos em dívida ativa.",
+        "tipo_valor": "INTEGER",
+        "valor_inteiro": 60,
+        "validacoes": {"min": 1, "max": 120, "unidade": "parcelas"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 2,
+        "base_legal": "CTM, Art. XX - Parcelamento de Dívida Ativa"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "DIVIDA_ATIVA",
+        "chave": "ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PARCELA",
+        "nome_exibicao": "Valor Mínimo da Parcela",
+        "descricao": "Valor mínimo permitido para cada parcela de dívida ativa",
+        "texto_ajuda": "Valor mínimo em reais que cada parcela do parcelamento deve ter. Impede parcelamentos em valores muito baixos.",
+        "tipo_valor": "DECIMAL",
+        "valor_decimal": Decimal("50.00"),
+        "validacoes": {"min": 10.00, "max": 500.00, "unidade": "R$"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 3,
+        "base_legal": "CTM, Art. XX - Parcelamento de Dívida Ativa"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "DIVIDA_ATIVA",
+        "chave": "ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_PROTESTO",
+        "nome_exibicao": "Valor Mínimo para Protesto",
+        "descricao": "Valor mínimo da dívida para envio a protesto em cartório",
+        "texto_ajuda": "Somente dívidas com valor igual ou superior a este montante podem ser enviadas para protesto.",
+        "tipo_valor": "DECIMAL",
+        "valor_decimal": Decimal("500.00"),
+        "validacoes": {"min": 100.00, "unidade": "R$"},
+        "obrigatorio": False,
+        "editavel": True,
+        "ordem_exibicao": 10,
+        "base_legal": "CTM, Art. XX - Protesto"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "DIVIDA_ATIVA",
+        "chave": "ARRECADACAO.DIVIDA_ATIVA.VALOR_MINIMO_EXECUCAO",
+        "nome_exibicao": "Valor Mínimo para Execução Fiscal",
+        "descricao": "Valor mínimo da dívida para ajuizamento de execução fiscal",
+        "texto_ajuda": "Somente dívidas com valor igual ou superior a este montante justificam o ajuizamento de execução fiscal.",
+        "tipo_valor": "DECIMAL",
+        "valor_decimal": Decimal("1000.00"),
+        "validacoes": {"min": 500.00, "unidade": "R$"},
+        "obrigatorio": False,
+        "editavel": True,
+        "ordem_exibicao": 11,
+        "base_legal": "CTM, Art. XX - Execução Fiscal"
+    },
+]
+
+
+# =====================================================
+# PARÂMETROS NFS-e
+# =====================================================
+
+PARAMETROS_NFSE = [
+    {
+        "modulo": "FISCAL",
+        "categoria": "NFSE",
+        "chave": "FISCAL.NFSE.ALIQUOTA_ISS_PADRAO",
+        "nome_exibicao": "Alíquota Padrão de ISS",
+        "descricao": "Alíquota padrão de ISS quando não especificada no cadastro do prestador",
+        "texto_ajuda": "Alíquota aplicada por padrão na emissão de NFS-e quando o estabelecimento não possui alíquota específica configurada.",
+        "tipo_valor": "DECIMAL",
+        "valor_decimal": Decimal("5.00"),
+        "validacoes": {"min": 2.00, "max": 5.00, "unidade": "%"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 1,
+        "base_legal": "Lei Complementar 116/2003, LC Municipal XX/XXXX"
+    },
+    {
+        "modulo": "FISCAL",
+        "categoria": "NFSE",
+        "chave": "FISCAL.NFSE.CODIGO_MUNICIPIO",
+        "nome_exibicao": "Código IBGE do Município",
+        "descricao": "Código IBGE do município (7 dígitos)",
+        "texto_ajuda": "Código oficial do IBGE usado na NFS-e. Ex: 3550308 para São Paulo/SP.",
+        "tipo_valor": "STRING",
+        "valor_string": "3550308",
+        "validacoes": {"regex": "^[0-9]{7}$"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 2,
+        "base_legal": "Padrão ABRASF para NFS-e"
+    },
+    {
+        "modulo": "FISCAL",
+        "categoria": "NFSE",
+        "chave": "FISCAL.NFSE.DIA_LIMITE_CANCELAMENTO",
+        "nome_exibicao": "Dia Limite para Cancelamento de NFS-e",
+        "descricao": "Até que dia do mês seguinte é permitido cancelar NFS-e emitida",
+        "texto_ajuda": "NFS-e pode ser cancelada até o dia especificado do mês seguinte à emissão. Ex: dia 10 do mês seguinte.",
+        "tipo_valor": "INTEGER",
+        "valor_inteiro": 10,
+        "validacoes": {"min": 5, "max": 15, "unidade": "dia do mês"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 3,
+        "base_legal": "Legislação Municipal sobre NFS-e"
+    },
+]
+
+
+# =====================================================
+# PARÂMETROS PAGAMENTOS
+# =====================================================
+
+PARAMETROS_PAGAMENTOS = [
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "PAGAMENTOS",
+        "chave": "ARRECADACAO.PAGAMENTOS.CHAVE_PIX",
+        "nome_exibicao": "Chave PIX do Município",
+        "descricao": "Chave PIX configurada para recebimento de tributos municipais",
+        "texto_ajuda": "Chave PIX (email, telefone, CNPJ ou aleatória) cadastrada junto ao PSP para recebimento via PIX.",
+        "tipo_valor": "STRING",
+        "valor_string": "municipio@pix.gov.br",
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 1,
+        "base_legal": "Regulamento de Arrecadação Municipal"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "PAGAMENTOS",
+        "chave": "ARRECADACAO.PAGAMENTOS.VALIDADE_PIX_HORAS",
+        "nome_exibicao": "Validade do QR Code PIX (horas)",
+        "descricao": "Número de horas que o QR Code PIX permanece válido",
+        "texto_ajuda": "Tempo de validade do QR Code gerado. Após esse período, um novo QR Code deve ser gerado.",
+        "tipo_valor": "INTEGER",
+        "valor_inteiro": 24,
+        "validacoes": {"min": 1, "max": 168, "unidade": "horas"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 2,
+        "base_legal": "Regulamento de Arrecadação Municipal"
+    },
+    {
+        "modulo": "ARRECADACAO",
+        "categoria": "PAGAMENTOS",
+        "chave": "ARRECADACAO.PAGAMENTOS.CODIGO_BANCO",
+        "nome_exibicao": "Código do Banco",
+        "descricao": "Código do banco usado para geração de boletos (3 dígitos)",
+        "texto_ajuda": "Código do banco conveniado. Ex: 001 (Banco do Brasil), 104 (Caixa Econômica), 756 (Sicoob).",
+        "tipo_valor": "STRING",
+        "valor_string": "001",
+        "validacoes": {"regex": "^[0-9]{3}$"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 10,
+        "base_legal": "Convênio Bancário Municipal"
+    },
+]
+
+
+# =====================================================
+# PARÂMETROS GERAIS DO MUNICÍPIO
+# =====================================================
+
+PARAMETROS_GERAL = [
+    {
+        "modulo": "GERAL",
+        "categoria": "MUNICIPIO",
+        "chave": "GERAL.MUNICIPIO.NOME_BENEFICIARIO",
+        "nome_exibicao": "Nome do Beneficiário (Prefeitura)",
+        "descricao": "Nome oficial da prefeitura para documentos fiscais",
+        "texto_ajuda": "Nome completo usado em boletos, PIX, NFS-e e outros documentos fiscais.",
+        "tipo_valor": "STRING",
+        "valor_string": "PREFEITURA MUNICIPAL",
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 1,
+        "base_legal": "Lei Orgânica Municipal"
+    },
+    {
+        "modulo": "GERAL",
+        "categoria": "MUNICIPIO",
+        "chave": "GERAL.MUNICIPIO.CNPJ",
+        "nome_exibicao": "CNPJ do Município",
+        "descricao": "CNPJ da prefeitura municipal",
+        "texto_ajuda": "CNPJ usado em documentos fiscais e bancários.",
+        "tipo_valor": "STRING",
+        "valor_string": "00.000.000/0001-00",
+        "validacoes": {"regex": "^[0-9]{2}\\.[0-9]{3}\\.[0-9]{3}/[0-9]{4}-[0-9]{2}$"},
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 2,
+        "base_legal": "Cadastro Nacional de Pessoa Jurídica"
+    },
+    {
+        "modulo": "GERAL",
+        "categoria": "MUNICIPIO",
+        "chave": "GERAL.MUNICIPIO.NOME_CIDADE",
+        "nome_exibicao": "Nome da Cidade",
+        "descricao": "Nome oficial do município",
+        "texto_ajuda": "Nome da cidade usado em documentos e comunicações oficiais.",
+        "tipo_valor": "STRING",
+        "valor_string": "CIDADE",
+        "obrigatorio": True,
+        "editavel": True,
+        "ordem_exibicao": 3,
+        "base_legal": "Lei Orgânica Municipal"
+    },
+]
+
+
+# =====================================================
 # TODOS OS PARÂMETROS
 # =====================================================
 
-TODOS_PARAMETROS = PARAMETROS_FISCAL + PARAMETROS_IPTU + PARAMETROS_ITBI
+TODOS_PARAMETROS = (
+    PARAMETROS_FISCAL +
+    PARAMETROS_IPTU +
+    PARAMETROS_ITBI +
+    PARAMETROS_DIVIDA_ATIVA +
+    PARAMETROS_NFSE +
+    PARAMETROS_PAGAMENTOS +
+    PARAMETROS_GERAL
+)

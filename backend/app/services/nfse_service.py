@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 
 from app.models.nfse import NotaFiscal, NotaFiscalItem, StatusNotaFiscal, TipoTributacao
 from app.models.cadastro import Estabelecimento, Pessoa
+from app.services.parametro_service import ParametroService
 
 
 class NFSeService:
@@ -18,6 +19,7 @@ class NFSeService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.parametro_service = ParametroService(db)
 
     def emitir_nfse(
         self,
@@ -64,6 +66,15 @@ class NFSeService:
                 detail="Tomador não encontrado"
             )
 
+        # Obter alíquota de ISS (configurável no CTM)
+        try:
+            aliquota_default = self.parametro_service.obter_parametro(
+                "FISCAL.NFSE.ALIQUOTA_ISS_PADRAO"
+            )
+            aliquota_default = Decimal(str(aliquota_default)) if aliquota_default else Decimal('5')
+        except ValueError:
+            aliquota_default = Decimal('5')
+
         # Calcular valores
         valor_servicos = Decimal('0')
         valor_deducoes = Decimal('0')
@@ -73,7 +84,7 @@ class NFSeService:
         valor_ir = Decimal('0')
         valor_csll = Decimal('0')
         base_calculo = Decimal('0')
-        aliquota_iss = prestador.aliquota_iss or Decimal('5')  # 5% padrão
+        aliquota_iss = prestador.aliquota_iss or aliquota_default
         valor_iss = Decimal('0')
         valor_iss_retido = Decimal('0')
 
@@ -102,6 +113,15 @@ class NFSeService:
             valor_iss = Decimal('0')
 
         valor_liquido = valor_servicos - valor_deducoes - valor_iss_retido
+
+        # Obter código do município (configurável)
+        try:
+            codigo_municipio = self.parametro_service.obter_parametro(
+                "FISCAL.NFSE.CODIGO_MUNICIPIO"
+            )
+            codigo_municipio = str(codigo_municipio) if codigo_municipio else '3550308'
+        except ValueError:
+            codigo_municipio = '3550308'  # São Paulo (fallback)
 
         # Gerar número da nota
         ano_atual = datetime.now().year
@@ -138,7 +158,7 @@ class NFSeService:
             valor_liquido=valor_liquido,
             # Discriminação
             discriminacao=dados_adicionais.get('discriminacao', ''),
-            codigo_municipio=dados_adicionais.get('codigo_municipio', '3550308'),  # São Paulo
+            codigo_municipio=dados_adicionais.get('codigo_municipio', codigo_municipio),
         )
 
         self.db.add(nota)
@@ -152,7 +172,7 @@ class NFSeService:
                 codigo_cnae=item_data.get('codigo_cnae', prestador.cnae_principal),
                 codigo_tributacao_municipio=item_data.get('codigo_tributacao', '01'),
                 discriminacao=item_data.get('discriminacao', ''),
-                codigo_municipio=dados_adicionais.get('codigo_municipio', '3550308'),
+                codigo_municipio=dados_adicionais.get('codigo_municipio', codigo_municipio),
                 quantidade=Decimal(str(item_data.get('quantidade', 1))),
                 valor_unitario=Decimal(str(item_data.get('valor_unitario', 0))),
                 valor_total=Decimal(str(item_data.get('quantidade', 1))) * Decimal(str(item_data.get('valor_unitario', 0))),
@@ -195,8 +215,16 @@ class NFSeService:
                 detail="Nota fiscal já está cancelada"
             )
 
-        # Verificar prazo para cancelamento (geralmente até o dia 10 do mês seguinte)
-        data_limite = nota.data_emissao.replace(day=10, month=nota.data_emissao.month + 1)
+        # Verificar prazo para cancelamento (configurável no CTM)
+        try:
+            dia_limite_cancelamento = self.parametro_service.obter_parametro(
+                "FISCAL.NFSE.DIA_LIMITE_CANCELAMENTO"
+            )
+            dia_limite = int(dia_limite_cancelamento) if dia_limite_cancelamento else 10
+        except ValueError:
+            dia_limite = 10
+
+        data_limite = nota.data_emissao.replace(day=dia_limite, month=nota.data_emissao.month + 1)
         if datetime.now() > data_limite:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
