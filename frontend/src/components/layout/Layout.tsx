@@ -21,6 +21,7 @@ import {
   Gavel as GavelIcon,
   Warning as WarningIcon,
   Tune as TuneIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -99,6 +100,12 @@ export function Layout({ children }: LayoutProps) {
                 <WarningIcon />
               </ListItemIcon>
               <ListItemText primary="Autos de Infração" />
+            </ListItemButton>
+            <ListItemButton sx={{ pl: 4 }} onClick={() => navigate('/fiscal/catalogo-infracoes')}>
+              <ListItemIcon>
+                <MenuBookIcon />
+              </ListItemIcon>
+              <ListItemText primary="Catálogo de Infrações" />
             </ListItemButton>
           </List>
         </Collapse>
