@@ -8,9 +8,12 @@ import { useAuthStore } from './stores/authStore'
 import { LoginPage } from './pages/auth/LoginPage'
 import { Dashboard } from './pages/Dashboard'
 import { PessoasListPage } from './pages/cadastro/PessoasListPage'
+import { PessoaDetalhesPage } from './pages/cadastro/PessoaDetalhesPage'
 import { ImoveisListPage } from './pages/cadastro/ImoveisListPage'
+import { ImovelDetalhesPage } from './pages/cadastro/ImovelDetalhesPage'
 import { LogradourosListPage } from './pages/cadastro/LogradourosListPage'
 import { EstabelecimentosListPage } from './pages/cadastro/EstabelecimentosListPage'
+import { EstabelecimentoDetalhesPage } from './pages/cadastro/EstabelecimentoDetalhesPage'
 import { CalculoIPTUPage } from './pages/tributario/CalculoIPTUPage'
 import { IPTULancamentosPage } from './pages/tributario/IPTULancamentosPage'
 import { ITBIPage } from './pages/tributario/ITBIPage'
@@ -51,9 +54,12 @@ function App() {
 
           {/* Cadastros */}
           <Route path="/cadastro/pessoas" element={<PessoasListPage />} />
+          <Route path="/cadastro/pessoas/:id" element={<PessoaDetalhesPage />} />
           <Route path="/cadastro/imoveis" element={<ImoveisListPage />} />
+          <Route path="/cadastro/imoveis/:id" element={<ImovelDetalhesPage />} />
           <Route path="/cadastro/logradouros" element={<LogradourosListPage />} />
           <Route path="/cadastro/estabelecimentos" element={<EstabelecimentosListPage />} />
+          <Route path="/cadastro/estabelecimentos/:id" element={<EstabelecimentoDetalhesPage />} />
 
           {/* Tributário */}
           <Route path="/tributario/iptu/calcular" element={<CalculoIPTUPage />} />
