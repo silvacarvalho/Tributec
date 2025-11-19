@@ -85,13 +85,13 @@ export const fiscalService = {
 
   julgarDefesa: async (
     autoId: string,
-    decisao: 'DEFERIDO' | 'INDEFERIDO',
-    motivo: string,
-    dataDecisao?: string
+    dados: {
+      decisao_defesa: string
+      data_decisao_defesa: string
+      motivo_decisao: string
+    }
   ): Promise<AutoInfracao> => {
-    const response = await api.post(`/fiscal/autos-infracao/${autoId}/julgar-defesa`, null, {
-      params: { decisao, motivo, data_decisao: dataDecisao }
-    })
+    const response = await api.post(`/fiscal/autos-infracao/${autoId}/julgar-defesa`, dados)
     return response.data
   },
 
@@ -103,10 +103,11 @@ export const fiscalService = {
     return response.data
   },
 
-  cancelarAuto: async (autoId: string, motivo: string): Promise<AutoInfracao> => {
-    const response = await api.post(`/fiscal/autos-infracao/${autoId}/cancelar`, null, {
-      params: { motivo }
-    })
+  cancelarAuto: async (
+    autoId: string,
+    dados: { motivo_cancelamento: string }
+  ): Promise<AutoInfracao> => {
+    const response = await api.post(`/fiscal/autos-infracao/${autoId}/cancelar`, dados)
     return response.data
   },
 

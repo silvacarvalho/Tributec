@@ -440,6 +440,21 @@ class ImovelService:
 
         return imovel
 
+    def inativar(self, imovel_id: UUID) -> None:
+        """
+        Inativa um imóvel (soft delete)
+
+        Args:
+            imovel_id: ID do imóvel
+
+        Raises:
+            HTTPException: Se imóvel não for encontrado
+        """
+        imovel = self.obter_por_id(imovel_id)
+        imovel.ativo = False
+
+        self.db.commit()
+
 
 class EstabelecimentoService:
     """Service para operações com Estabelecimentos"""
@@ -533,6 +548,72 @@ class EstabelecimentoService:
 
         return estabelecimento
 
+    def obter_por_ccm(self, ccm: str) -> Estabelecimento:
+        """
+        Busca estabelecimento por inscrição municipal (CCM)
+
+        Args:
+            ccm: Inscrição municipal (CCM)
+
+        Returns:
+            Estabelecimento encontrado
+
+        Raises:
+            HTTPException: Se estabelecimento não for encontrado
+        """
+        estabelecimento = self.db.query(Estabelecimento).filter(
+            Estabelecimento.inscricao_municipal == ccm
+        ).first()
+
+        if not estabelecimento:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Estabelecimento não encontrado"
+            )
+
+        return estabelecimento
+
+    def atualizar(self, estabelecimento_id: UUID, estabelecimento_update: EstabelecimentoUpdate) -> Estabelecimento:
+        """
+        Atualiza dados de um estabelecimento
+
+        Args:
+            estabelecimento_id: ID do estabelecimento
+            estabelecimento_update: Dados a atualizar
+
+        Returns:
+            Estabelecimento atualizado
+
+        Raises:
+            HTTPException: Se estabelecimento não for encontrado
+        """
+        estabelecimento = self.obter_por_id(estabelecimento_id)
+
+        update_data = estabelecimento_update.model_dump(exclude_unset=True)
+
+        for campo, valor in update_data.items():
+            setattr(estabelecimento, campo, valor)
+
+        self.db.commit()
+        self.db.refresh(estabelecimento)
+
+        return estabelecimento
+
+    def inativar(self, estabelecimento_id: UUID) -> None:
+        """
+        Inativa um estabelecimento (soft delete)
+
+        Args:
+            estabelecimento_id: ID do estabelecimento
+
+        Raises:
+            HTTPException: Se estabelecimento não for encontrado
+        """
+        estabelecimento = self.obter_por_id(estabelecimento_id)
+        estabelecimento.ativo = False
+
+        self.db.commit()
+
 
 class LogradouroService:
     """Service para operações com Logradouros"""
@@ -575,3 +656,292 @@ class LogradouroService:
         logradouros = query.offset(skip).limit(limit).all()
 
         return logradouros, total
+
+    def obter_por_id(self, logradouro_id: int) -> Logradouro:
+        """
+        Obtém logradouro por ID
+
+        Args:
+            logradouro_id: ID do logradouro
+
+        Returns:
+            Logradouro encontrado
+
+        Raises:
+            HTTPException: Se logradouro não for encontrado
+        """
+        logradouro = self.db.query(Logradouro).filter(
+            Logradouro.id == logradouro_id
+        ).first()
+
+        if not logradouro:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Logradouro não encontrado"
+            )
+
+        return logradouro
+
+    def obter_por_codigo(self, codigo: str) -> Logradouro:
+        """
+        Busca logradouro por código
+
+        Args:
+            codigo: Código do logradouro
+
+        Returns:
+            Logradouro encontrado
+
+        Raises:
+            HTTPException: Se logradouro não for encontrado
+        """
+        logradouro = self.db.query(Logradouro).filter(
+            Logradouro.codigo == codigo
+        ).first()
+
+        if not logradouro:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Logradouro não encontrado"
+            )
+
+        return logradouro
+
+    def atualizar(self, logradouro_id: int, logradouro_update: LogradouroCreate) -> Logradouro:
+        """
+        Atualiza dados de um logradouro
+
+        Args:
+            logradouro_id: ID do logradouro
+            logradouro_update: Dados a atualizar
+
+        Returns:
+            Logradouro atualizado
+
+        Raises:
+            HTTPException: Se logradouro não for encontrado
+        """
+        logradouro = self.obter_por_id(logradouro_id)
+
+        update_data = logradouro_update.model_dump(exclude_unset=True)
+
+        for campo, valor in update_data.items():
+            setattr(logradouro, campo, valor)
+
+        self.db.commit()
+        self.db.refresh(logradouro)
+
+        return logradouro
+
+    def excluir(self, logradouro_id: int) -> None:
+        """
+        Exclui um logradouro
+
+        Args:
+            logradouro_id: ID do logradouro
+
+        Raises:
+            HTTPException: Se logradouro não for encontrado ou estiver em uso
+        """
+        logradouro = self.obter_por_id(logradouro_id)
+
+        # Verificar se o logradouro está sendo utilizado por algum imóvel ou endereço
+        imoveis_usando = self.db.query(Imovel).filter(
+            Imovel.logradouro_id == logradouro_id
+        ).count()
+
+        enderecos_usando = self.db.query(Endereco).filter(
+            Endereco.logradouro_id == logradouro_id
+        ).count()
+
+        if imoveis_usando > 0 or enderecos_usando > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Logradouro não pode ser excluído pois está em uso por {imoveis_usando} imóveis e {enderecos_usando} endereços"
+            )
+
+        self.db.delete(logradouro)
+        self.db.commit()
+
+
+class EnderecoService:
+    """Service para operações com Endereços"""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def criar(self, pessoa_id: UUID, endereco_data) -> Endereco:
+        """
+        Adiciona um novo endereço a uma pessoa
+
+        Args:
+            pessoa_id: ID da pessoa
+            endereco_data: Dados do endereço (EnderecoCreate)
+
+        Returns:
+            Endereco criado
+
+        Raises:
+            HTTPException: Se pessoa não for encontrada ou logradouro inválido
+        """
+        # Verificar se pessoa existe
+        pessoa = self.db.query(Pessoa).filter(Pessoa.id == pessoa_id).first()
+        if not pessoa:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pessoa não encontrada"
+            )
+
+        # Verificar se logradouro existe (se fornecido)
+        if hasattr(endereco_data, 'logradouro_id') and endereco_data.logradouro_id:
+            logradouro = self.db.query(Logradouro).filter(
+                Logradouro.id == endereco_data.logradouro_id
+            ).first()
+            if not logradouro:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Logradouro não encontrado"
+                )
+
+        # Se é o primeiro endereço, definir como principal automaticamente
+        enderecos_existentes = self.db.query(Endereco).filter(
+            Endereco.pessoa_id == pessoa_id
+        ).count()
+
+        endereco_dict = endereco_data.model_dump(exclude_unset=True)
+        endereco_dict['pessoa_id'] = pessoa_id
+
+        # Se for o primeiro endereço, marca como principal
+        if enderecos_existentes == 0:
+            endereco_dict['endereco_principal'] = True
+        elif endereco_dict.get('endereco_principal', False):
+            # Se está marcando como principal, desmarcar os outros
+            self.db.query(Endereco).filter(
+                Endereco.pessoa_id == pessoa_id,
+                Endereco.endereco_principal == True
+            ).update({'endereco_principal': False})
+
+        novo_endereco = Endereco(**endereco_dict)
+
+        self.db.add(novo_endereco)
+        self.db.commit()
+        self.db.refresh(novo_endereco)
+
+        return novo_endereco
+
+    def obter_por_id(self, endereco_id: int) -> Endereco:
+        """
+        Obtém endereço por ID
+
+        Args:
+            endereco_id: ID do endereço
+
+        Returns:
+            Endereco encontrado
+
+        Raises:
+            HTTPException: Se endereço não for encontrado
+        """
+        endereco = self.db.query(Endereco).filter(
+            Endereco.id == endereco_id
+        ).first()
+
+        if not endereco:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Endereço não encontrado"
+            )
+
+        return endereco
+
+    def atualizar(self, endereco_id: int, endereco_update) -> Endereco:
+        """
+        Atualiza um endereço
+
+        Args:
+            endereco_id: ID do endereço
+            endereco_update: Dados a atualizar (EnderecoCreate)
+
+        Returns:
+            Endereco atualizado
+
+        Raises:
+            HTTPException: Se endereço não for encontrado
+        """
+        endereco = self.obter_por_id(endereco_id)
+
+        update_data = endereco_update.model_dump(exclude_unset=True)
+
+        # Se está marcando como principal, desmarcar os outros da mesma pessoa
+        if update_data.get('endereco_principal', False):
+            self.db.query(Endereco).filter(
+                Endereco.pessoa_id == endereco.pessoa_id,
+                Endereco.id != endereco_id,
+                Endereco.endereco_principal == True
+            ).update({'endereco_principal': False})
+
+        for campo, valor in update_data.items():
+            setattr(endereco, campo, valor)
+
+        self.db.commit()
+        self.db.refresh(endereco)
+
+        return endereco
+
+    def excluir(self, endereco_id: int) -> None:
+        """
+        Remove um endereço
+
+        Args:
+            endereco_id: ID do endereço
+
+        Raises:
+            HTTPException: Se endereço não for encontrado ou for o único endereço principal
+        """
+        endereco = self.obter_por_id(endereco_id)
+
+        # Verificar se é o endereço principal e único
+        if endereco.endereco_principal:
+            outros_enderecos = self.db.query(Endereco).filter(
+                Endereco.pessoa_id == endereco.pessoa_id,
+                Endereco.id != endereco_id
+            ).count()
+
+            if outros_enderecos > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Não é possível excluir o endereço principal. Defina outro endereço como principal primeiro."
+                )
+
+        self.db.delete(endereco)
+        self.db.commit()
+
+    def definir_principal(self, endereco_id: int) -> Endereco:
+        """
+        Define um endereço como principal (desativa outros endereços principais da mesma pessoa)
+
+        Args:
+            endereco_id: ID do endereço
+
+        Returns:
+            Endereco atualizado
+
+        Raises:
+            HTTPException: Se endereço não for encontrado
+        """
+        endereco = self.obter_por_id(endereco_id)
+
+        # Desmarcar outros endereços principais da mesma pessoa
+        self.db.query(Endereco).filter(
+            Endereco.pessoa_id == endereco.pessoa_id,
+            Endereco.id != endereco_id,
+            Endereco.endereco_principal == True
+        ).update({'endereco_principal': False})
+
+        # Marcar este como principal
+        endereco.endereco_principal = True
+
+        self.db.commit()
+        self.db.refresh(endereco)
+
+        return endereco

@@ -46,6 +46,14 @@ export const logradouroService = {
   },
 
   /**
+   * Obtém logradouro por código
+   */
+  async obterPorCodigo(codigo: string): Promise<Logradouro> {
+    const { data } = await api.get<Logradouro>(`/cadastro/logradouros/codigo/${codigo}`)
+    return data
+  },
+
+  /**
    * Atualiza logradouro
    */
   async atualizar(id: number, dados: LogradouroUpdate): Promise<Logradouro> {

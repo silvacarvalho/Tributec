@@ -27,7 +27,12 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
+  Visibility as VisibilityIcon,
+  FileDownload as FileDownloadIcon,
+  FilterList as FilterListIcon,
 } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
+import validacaoService from '@/services/validacaoService'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-toastify'
 import { pessoaService } from '@/services/pessoaService'
@@ -36,6 +41,7 @@ import { PessoaFormDialog } from '@/components/cadastro/PessoaFormDialog'
 
 export function PessoasListPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [searchTerm, setSearchTerm] = useState('')
@@ -123,9 +129,73 @@ export function PessoasListPage() {
 
   const formatDocument = (pessoa: Pessoa) => {
     if (pessoa.tipo_pessoa === 'F') {
-      return pessoa.cpf || '-'
+      return pessoa.cpf ? validacaoService.formatarCpf(pessoa.cpf) : '-'
     }
-    return pessoa.cnpj || '-'
+    return pessoa.cnpj ? validacaoService.formatarCnpj(pessoa.cnpj) : '-'
+  }
+
+  // Export CSV
+  const handleExportarCSV = () => {
+    if (!data?.itens || data.itens.length === 0) {
+      toast.warning('Nenhum dado para exportar')
+      return
+    }
+
+    const headers = ['Tipo', 'Nome/Razão Social', 'CPF/CNPJ', 'E-mail', 'Telefone', 'Status']
+    const rows = data.itens.map((pessoa) => [
+      pessoa.tipo_pessoa === 'F' ? 'Física' : 'Jurídica',
+      pessoa.nome_razao_social || '',
+      formatDocument(pessoa),
+      pessoa.email || '',
+      pessoa.celular || pessoa.telefone || '',
+      pessoa.ativo ? 'Ativo' : 'Inativo',
+    ])
+
+    const csv = [headers, ...rows].map((row) => row.join(';')).join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `pessoas-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+
+    toast.success('CSV exportado com sucesso!')
+  }
+
+  // Export Excel (HTML table)
+  const handleExportarExcel = () => {
+    if (!data?.itens || data.itens.length === 0) {
+      toast.warning('Nenhum dado para exportar')
+      return
+    }
+
+    const headers = ['Tipo', 'Nome/Razão Social', 'CPF/CNPJ', 'E-mail', 'Telefone', 'Status']
+    const rows = data.itens.map((pessoa) => [
+      pessoa.tipo_pessoa === 'F' ? 'Física' : 'Jurídica',
+      pessoa.nome_razao_social || '',
+      formatDocument(pessoa),
+      pessoa.email || '',
+      pessoa.celular || pessoa.telefone || '',
+      pessoa.ativo ? 'Ativo' : 'Inativo',
+    ])
+
+    const htmlTable = `
+      <table>
+        <thead>
+          <tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    `
+
+    const blob = new Blob([htmlTable], { type: 'application/vnd.ms-excel' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `pessoas-${new Date().toISOString().split('T')[0]}.xls`
+    link.click()
+
+    toast.success('Excel exportado com sucesso!')
   }
 
   return (
@@ -134,13 +204,31 @@ export function PessoasListPage() {
         <Typography variant="h4" component="h1">
           Pessoas
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Nova Pessoa
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExportarCSV}
+            disabled={!data?.itens || data.itens.length === 0}
+          >
+            CSV
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExportarExcel}
+            disabled={!data?.itens || data.itens.length === 0}
+          >
+            Excel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Nova Pessoa
+          </Button>
+        </Box>
       </Box>
 
       <Card sx={{ mb: 2, p: 2 }}>
@@ -230,8 +318,17 @@ export function PessoasListPage() {
                         <TableCell align="right">
                           <IconButton
                             size="small"
+                            onClick={() => navigate(`/cadastro/pessoas/${pessoa.id}`)}
+                            color="info"
+                            title="Visualizar"
+                          >
+                            <VisibilityIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
                             onClick={() => handleOpenDialog(pessoa)}
                             color="primary"
+                            title="Editar"
                           >
                             <EditIcon />
                           </IconButton>
@@ -239,6 +336,7 @@ export function PessoasListPage() {
                             size="small"
                             onClick={() => handleDelete(pessoa.id)}
                             color="error"
+                            title="Excluir"
                           >
                             <DeleteIcon />
                           </IconButton>
