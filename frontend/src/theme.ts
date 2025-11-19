@@ -1,32 +1,26 @@
-import { createTheme } from '@mui/material/styles'
+/**
+ * Tema Material-UI com suporte a Dark Mode
+ */
+import { createTheme, ThemeOptions, PaletteMode } from '@mui/material/styles'
+import { ptBR } from '@mui/material/locale'
 
-export const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
-    },
-    secondary: {
-      main: '#dc004e',
-      light: '#e33371',
-      dark: '#9a0036',
-    },
-    success: {
-      main: '#2e7d32',
-    },
-    warning: {
-      main: '#ed6c02',
-    },
-    error: {
-      main: '#d32f2f',
-    },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
-    },
-  },
+// Cores primárias do sistema
+const primaryColor = {
+  main: '#1976d2',
+  light: '#42a5f5',
+  dark: '#1565c0',
+  contrastText: '#fff',
+}
+
+const secondaryColor = {
+  main: '#dc004e',
+  light: '#ff5983',
+  dark: '#9a0036',
+  contrastText: '#fff',
+}
+
+// Configurações base compartilhadas
+const baseThemeOptions: ThemeOptions = {
   typography: {
     fontFamily: [
       '-apple-system',
@@ -81,5 +75,61 @@ export const theme = createTheme({
         },
       },
     },
+    MuiTextField: {
+      defaultProps: {
+        variant: 'outlined',
+        size: 'small',
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          fontSize: '0.875rem',
+        },
+      },
+    },
   },
-})
+}
+
+/**
+ * Cria tema baseado no modo (light/dark)
+ */
+export function createAppTheme(mode: PaletteMode = 'light') {
+  return createTheme(
+    {
+      ...baseThemeOptions,
+      palette: {
+        mode,
+        primary: primaryColor,
+        secondary: secondaryColor,
+        ...(mode === 'light'
+          ? {
+              // Modo claro
+              background: {
+                default: '#f5f5f5',
+                paper: '#ffffff',
+              },
+              text: {
+                primary: 'rgba(0, 0, 0, 0.87)',
+                secondary: 'rgba(0, 0, 0, 0.6)',
+              },
+            }
+          : {
+              // Modo escuro
+              background: {
+                default: '#121212',
+                paper: '#1e1e1e',
+              },
+              text: {
+                primary: '#ffffff',
+                secondary: 'rgba(255, 255, 255, 0.7)',
+              },
+            }),
+      },
+    },
+    ptBR
+  )
+}
+
+// Tema padrão (light)
+export const theme = createAppTheme('light')
