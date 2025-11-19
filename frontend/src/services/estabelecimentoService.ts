@@ -50,6 +50,14 @@ export const estabelecimentoService = {
   },
 
   /**
+   * Obtém estabelecimento por CCM (Inscrição Municipal)
+   */
+  async obterPorCcm(ccm: string): Promise<Estabelecimento> {
+    const { data } = await api.get<Estabelecimento>(`/cadastro/estabelecimentos/ccm/${ccm}`)
+    return data
+  },
+
+  /**
    * Atualiza estabelecimento
    */
   async atualizar(
