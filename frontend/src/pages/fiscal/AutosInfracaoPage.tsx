@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Paper,
@@ -13,9 +14,11 @@ import {
   Button,
   TextField,
   MenuItem,
-  Grid
+  Grid,
+  IconButton,
+  Tooltip
 } from '@mui/material'
-import { Add, Search } from '@mui/icons-material'
+import { Add, Search, Visibility, Assessment } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fiscalService } from '../../services/fiscalService'
 import { LavrarAutoDialog } from '../../components/fiscal/LavrarAutoDialog'
@@ -34,6 +37,7 @@ const STATUS_COLORS: Record<StatusAutoInfracao, 'default' | 'warning' | 'success
 }
 
 export function AutosInfracaoPage() {
+  const navigate = useNavigate()
   const [filtros, setFiltros] = useState({
     status: '',
     data_inicio: '',
@@ -68,13 +72,22 @@ export function AutosInfracaoPage() {
     return new Date(data).toLocaleDateString('pt-BR')
   }
 
+  const handleVerDetalhes = (autoId: string) => {
+    navigate(`/fiscal/autos/${autoId}`)
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Autos de Infração</Typography>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setDialogAberto(true)}>
-          Lavrar Auto
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" startIcon={<Assessment />} onClick={() => navigate('/fiscal/catalogo')}>
+            Catálogo
+          </Button>
+          <Button variant="contained" startIcon={<Add />} onClick={() => setDialogAberto(true)}>
+            Lavrar Auto
+          </Button>
+        </Box>
       </Box>
 
       {/* Diálogo de Lavrar Auto */}
@@ -185,18 +198,19 @@ export function AutosInfracaoPage() {
               <TableCell>Infração</TableCell>
               <TableCell>Valor Total</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : autos?.items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   Nenhum auto encontrado
                 </TableCell>
               </TableRow>
@@ -228,6 +242,17 @@ export function AutosInfracaoPage() {
                   </TableCell>
                   <TableCell>
                     <Chip label={auto.status} color={STATUS_COLORS[auto.status]} size="small" />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="Ver Detalhes">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleVerDetalhes(auto.id)}
+                      >
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))

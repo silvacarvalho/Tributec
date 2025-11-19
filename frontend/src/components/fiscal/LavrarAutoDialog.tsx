@@ -11,13 +11,14 @@ import {
   Typography,
   Box,
   Alert,
-  Autocomplete,
   CircularProgress
 } from '@mui/material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-toastify'
 import { fiscalService } from '../../services/fiscalService'
 import { parametroService } from '../../services/parametroService'
-import { ParameterInfoIcon } from '../common/ParameterInfoIcon'
+import { BuscaAutuadoField } from './BuscaAutuadoField'
+import { BuscaFiscalField } from './BuscaFiscalField'
 import type { AutoInfracaoCreate } from '../../types/fiscal'
 
 interface LavrarAutoDialogProps {
@@ -56,6 +57,7 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
     mutationFn: (dados: AutoInfracaoCreate) => fiscalService.lavrarAuto(dados),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autos-infracao'] })
+      toast.success('Auto de infração lavrado com sucesso!')
       onClose()
       setFormData({
         codigo_infracao: '',
@@ -65,6 +67,9 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
         valor_base_calculo: undefined,
         observacoes: ''
       })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Erro ao lavrar auto de infração')
     }
   })
 
@@ -218,27 +223,21 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
               </Grid>
             )}
 
-            {/* Autuado ID */}
+            {/* Autuado (Busca com Autocomplete) */}
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="ID do Autuado (UUID)"
-                value={formData.autuado_id}
-                onChange={(e) => handleChange('autuado_id', e.target.value)}
+              <BuscaAutuadoField
+                value={formData.autuado_id || ''}
+                onChange={(pessoaId) => handleChange('autuado_id', pessoaId)}
                 required
-                helperText="UUID da pessoa autuada"
               />
             </Grid>
 
-            {/* Fiscal Autuante ID */}
+            {/* Fiscal Autuante (Busca com Autocomplete) */}
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="ID do Fiscal (UUID)"
-                value={formData.fiscal_autuante_id}
-                onChange={(e) => handleChange('fiscal_autuante_id', e.target.value)}
+              <BuscaFiscalField
+                value={formData.fiscal_autuante_id || ''}
+                onChange={(fiscalId) => handleChange('fiscal_autuante_id', fiscalId)}
                 required
-                helperText="UUID do fiscal autuante"
               />
             </Grid>
 
