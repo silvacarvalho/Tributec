@@ -1,19 +1,42 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Box, Card, CardContent, TextField, Button, Typography, Alert } from '@mui/material'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import {
+  Box,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  FormControlLabel,
+  Checkbox,
+  Link as MuiLink,
+} from '@mui/material'
 import { AccountBalance as AccountBalanceIcon } from '@mui/icons-material'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import { toast } from 'react-toastify'
+
+const REMEMBER_ME_KEY = 'tributec-remember-email'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
 
   const navigate = useNavigate()
   const { login } = useAuthStore()
+
+  // Carregar email salvo ao montar
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(REMEMBER_ME_KEY)
+    if (savedEmail) {
+      setEmail(savedEmail)
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +64,14 @@ export function LoginPage() {
       }
 
       login(user, access_token, refresh_token)
+
+      // Salvar ou remover email do localStorage
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_ME_KEY, email)
+      } else {
+        localStorage.removeItem(REMEMBER_ME_KEY)
+      }
+
       toast.success('Login realizado com sucesso!')
       navigate('/')
     } catch (err: any) {
@@ -102,6 +133,28 @@ export function LoginPage() {
               margin="normal"
               required
             />
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={<Typography variant="body2">Lembrar-me</Typography>}
+              />
+              <MuiLink
+                component={Link}
+                to="/recuperar-senha"
+                variant="body2"
+                underline="hover"
+                sx={{ cursor: 'pointer' }}
+              >
+                Esqueci minha senha
+              </MuiLink>
+            </Box>
 
             <Button
               fullWidth
