@@ -18,6 +18,10 @@ import { ISSQNPage } from './pages/tributario/ISSQNPage'
 import { AliquotasPage } from './pages/configuracoes/AliquotasPage'
 import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
 import { ParcelamentosPage } from './pages/arrecadacao/ParcelamentosPage'
+import { DashboardArrecadacaoPage } from './pages/arrecadacao/DashboardArrecadacaoPage'
+import { DebitosPage } from './pages/arrecadacao/DebitosPage'
+import { InadimplenciaPage } from './pages/arrecadacao/InadimplenciaPage'
+import { RelatoriosArrecadacaoPage } from './pages/arrecadacao/RelatoriosArrecadacaoPage'
 import { DTDListPage } from './pages/admin/DTDListPage'
 import { DTDMensagensPage } from './pages/contribuinte/DTDMensagensPage'
 import { DashboardContribuinte } from './pages/portal/DashboardContribuinte'
@@ -64,7 +68,11 @@ function App() {
           <Route path="/tributario/issqn" element={<ISSQNPage />} />
 
           {/* Arrecadação */}
+          <Route path="/arrecadacao/dashboard" element={<DashboardArrecadacaoPage />} />
+          <Route path="/arrecadacao/debitos" element={<DebitosPage />} />
+          <Route path="/arrecadacao/inadimplencia" element={<InadimplenciaPage />} />
           <Route path="/arrecadacao/parcelamentos" element={<ParcelamentosPage />} />
+          <Route path="/arrecadacao/relatorios" element={<RelatoriosArrecadacaoPage />} />
 
           {/* Fiscal */}
           <Route path="/fiscal/dashboard" element={<DashboardFiscalPage />} />
