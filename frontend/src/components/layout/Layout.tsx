@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/material'
+import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, Collapse, Divider } from '@mui/material'
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -18,6 +18,10 @@ import {
   ExpandLess,
   ExpandMore,
   Email as EmailIcon,
+  Gavel as GavelIcon,
+  Warning as WarningIcon,
+  Tune as TuneIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -32,6 +36,8 @@ const drawerWidth = 240
 
 export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [fiscalOpen, setFiscalOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
   const navigate = useNavigate()
   const { logout, user } = useAuthStore()
   const { mode, toggleTheme } = useThemeMode()
@@ -55,7 +61,6 @@ export function Layout({ children }: LayoutProps) {
     { text: 'ISSQN', icon: <ReceiptIcon />, path: '/tributario/issqn' },
     { text: 'Parcelamentos', icon: <PaymentIcon />, path: '/arrecadacao/parcelamentos' },
     { text: 'DTD', icon: <EmailIcon />, path: '/admin/dtd' },
-    { text: 'Alíquotas', icon: <SettingsIcon />, path: '/configuracoes/aliquotas' },
   ]
 
   const drawer = (
@@ -75,6 +80,65 @@ export function Layout({ children }: LayoutProps) {
             </ListItemButton>
           </ListItem>
         ))}
+
+        <Divider sx={{ my: 1 }} />
+
+        {/* Fiscalização */}
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => setFiscalOpen(!fiscalOpen)}>
+            <ListItemIcon>
+              <GavelIcon />
+            </ListItemIcon>
+            <ListItemText primary="Fiscalização" />
+            {fiscalOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={fiscalOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            <ListItemButton sx={{ pl: 4 }} onClick={() => navigate('/fiscal/autos-infracao')}>
+              <ListItemIcon>
+                <WarningIcon />
+              </ListItemIcon>
+              <ListItemText primary="Autos de Infração" />
+            </ListItemButton>
+            <ListItemButton sx={{ pl: 4 }} onClick={() => navigate('/fiscal/catalogo-infracoes')}>
+              <ListItemIcon>
+                <MenuBookIcon />
+              </ListItemIcon>
+              <ListItemText primary="Catálogo de Infrações" />
+            </ListItemButton>
+          </List>
+        </Collapse>
+
+        {/* Configurações */}
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => setConfigOpen(!configOpen)}>
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Configurações" />
+            {configOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+        </ListItem>
+        <Collapse in={configOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            <ListItemButton sx={{ pl: 4 }} onClick={() => navigate('/configuracoes/aliquotas')}>
+              <ListItemIcon>
+                <ReceiptIcon />
+              </ListItemIcon>
+              <ListItemText primary="Alíquotas" />
+            </ListItemButton>
+            <ListItemButton sx={{ pl: 4 }} onClick={() => navigate('/configuracoes/parametros')}>
+              <ListItemIcon>
+                <TuneIcon />
+              </ListItemIcon>
+              <ListItemText primary="Parâmetros" />
+            </ListItemButton>
+          </List>
+        </Collapse>
+
+        <Divider sx={{ my: 1 }} />
+
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>

@@ -21,6 +21,8 @@ import { useQuery } from '@tanstack/react-query'
 import type { Imovel, ImovelCreate, TipoImovel, SetorFiscal, Pessoa } from '@/types/cadastro'
 import { imovelService } from '@/services/imovelService'
 import { pessoaService } from '@/services/pessoaService'
+import { CepInput } from './CepInput'
+import type { CepResponse } from '@/services/cepService'
 
 interface ImovelFormDialogProps {
   open: boolean
@@ -38,6 +40,7 @@ export function ImovelFormDialog({ open, onClose, onSubmit, imovel }: ImovelForm
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ImovelCreate>({
     defaultValues: {
@@ -85,6 +88,14 @@ export function ImovelFormDialog({ open, onClose, onSubmit, imovel }: ImovelForm
       }),
     enabled: open,
   })
+
+  // Handler para preenchimento automático do endereço
+  const handleEnderecoBuscado = (endereco: CepResponse) => {
+    setValue('endereco.logradouro', endereco.logradouro)
+    setValue('endereco.bairro', endereco.bairro)
+    setValue('endereco.cidade', endereco.cidade)
+    setValue('endereco.estado', endereco.estado)
+  }
 
   useEffect(() => {
     if (imovel) {
@@ -261,7 +272,16 @@ export function ImovelFormDialog({ open, onClose, onSubmit, imovel }: ImovelForm
                 <Controller
                   name="endereco.cep"
                   control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="CEP" placeholder="00000-000" />}
+                  render={({ field: { value, onChange } }) => (
+                    <CepInput
+                      value={value}
+                      onChange={onChange}
+                      onEnderecoBuscado={handleEnderecoBuscado}
+                      label="CEP"
+                      fullWidth
+                      buscarAutomatico
+                    />
+                  )}
                 />
               </Grid>
 

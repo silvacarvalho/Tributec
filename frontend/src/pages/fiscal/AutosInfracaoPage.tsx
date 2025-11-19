@@ -10,12 +10,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
+  TableSortLabel,
   Chip,
   Button,
   TextField,
   MenuItem,
   Grid,
   IconButton,
+  Collapse,
+  InputAdornment,
+  Tooltip,
   Tooltip,
   TablePagination,
   Collapse
@@ -23,6 +28,11 @@ import {
 import {
   Add,
   Search,
+  FilterList,
+  FileDownload,
+  ExpandMore,
+  ExpandLess,
+  TableChart,
   Visibility,
   Assessment,
   FileDownload,
@@ -47,12 +57,31 @@ const STATUS_COLORS: Record<StatusAutoInfracao, 'default' | 'warning' | 'success
   INSCRITO_DIVIDA: 'error',
 }
 
+type OrderBy = 'numero_auto' | 'data_lavratura' | 'autuado_nome' | 'valor_total' | 'status'
+type Order = 'asc' | 'desc'
+
 export function AutosInfracaoPage() {
   const navigate = useNavigate()
+  const [dialogAberto, setDialogAberto] = useState(false)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
+
+  // Estados de paginação e ordenação
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [order, setOrder] = useState<Order>('desc')
+  const [orderBy, setOrderBy] = useState<OrderBy>('data_lavratura')
+
+  // Estados de filtros
+  const [busca, setBusca] = useState('')
   const [filtros, setFiltros] = useState({
     status: '',
     data_inicio: '',
     data_fim: '',
+    fiscal_autuante: '',
+    codigo_infracao: '',
+    valor_min: '',
+    valor_max: '',
+  })
     numero_auto: '',
     autuado_nome: ''
   })
@@ -62,24 +91,31 @@ export function AutosInfracaoPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10)
 
   const { data: autos, isLoading } = useQuery({
-    queryKey: ['autos-infracao', filtros],
-    queryFn: () => fiscalService.listarAutos(filtros as any)
+    queryKey: ['autos-infracao', filtros, page, rowsPerPage, order, orderBy, busca],
+    queryFn: () => fiscalService.listarAutos({
+      ...filtros,
+      busca,
+      page: page + 1,
+      limit: rowsPerPage,
+      order_by: orderBy,
+      order_direction: order,
+    } as any),
   })
 
   const { data: estatisticas } = useQuery({
     queryKey: ['estatisticas-autos'],
-    queryFn: () => fiscalService.obterEstatisticasPorStatus()
+    queryFn: () => fiscalService.obterEstatisticasPorStatus(),
   })
 
   const { data: valores } = useQuery({
     queryKey: ['valores-autos'],
-    queryFn: () => fiscalService.obterEstatisticasValores()
+    queryFn: () => fiscalService.obterEstatisticasValores(),
   })
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL'
+      currency: 'BRL',
     }).format(valor)
   }
 
@@ -88,6 +124,7 @@ export function AutosInfracaoPage() {
     return new Date(data).toLocaleDateString('pt-BR')
   }
 
+  const handleChangePage = (_event: unknown, newPage: number) => {
   const handleVerDetalhes = (autoId: string) => {
     navigate(`/fiscal/autos/${autoId}`)
   }
@@ -101,6 +138,42 @@ export function AutosInfracaoPage() {
     setPage(0)
   }
 
+  const handleRequestSort = (property: OrderBy) => {
+    const isAsc = orderBy === property && order === 'asc'
+    setOrder(isAsc ? 'desc' : 'asc')
+    setOrderBy(property)
+  }
+
+  const handleLimparFiltros = () => {
+    setBusca('')
+    setFiltros({
+      status: '',
+      data_inicio: '',
+      data_fim: '',
+      fiscal_autuante: '',
+      codigo_infracao: '',
+      valor_min: '',
+      valor_max: '',
+    })
+    setPage(0)
+  }
+
+  const handleExportarCSV = () => {
+    if (!autos?.items) return
+
+    const headers = ['Número', 'Data', 'Autuado', 'CPF/CNPJ', 'Infração', 'Valor', 'Status']
+    const rows = autos.items.map((auto) => [
+      auto.numero_auto,
+      formatarData(auto.data_lavratura),
+      auto.autuado_nome,
+      auto.autuado_cpf_cnpj,
+      `${auto.codigo_infracao} - ${auto.descricao_infracao}`,
+      auto.valor_total.toFixed(2).replace('.', ','),
+      auto.status,
+    ])
+
+    const csv = [headers, ...rows].map((row) => row.join(';')).join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
   const handleExportarExcel = () => {
     // Simular exportação
     const csvContent = [
@@ -124,6 +197,34 @@ export function AutosInfracaoPage() {
     link.click()
   }
 
+  const handleExportarExcel = () => {
+    if (!autos?.items) return
+
+    // Criar HTML table para Excel
+    const headers = ['Número', 'Data', 'Autuado', 'CPF/CNPJ', 'Infração', 'Valor', 'Status']
+    const rows = autos.items.map((auto) => [
+      auto.numero_auto,
+      formatarData(auto.data_lavratura),
+      auto.autuado_nome,
+      auto.autuado_cpf_cnpj,
+      `${auto.codigo_infracao} - ${auto.descricao_infracao}`,
+      formatarMoeda(auto.valor_total),
+      auto.status,
+    ])
+
+    const htmlTable = `
+      <table>
+        <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    `
+
+    const blob = new Blob([htmlTable], { type: 'application/vnd.ms-excel' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `autos-infracao-${new Date().toISOString().split('T')[0]}.xls`
+    link.click()
+  }
   const autosPaginados = autos?.items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) || []
 
   return (
@@ -131,6 +232,16 @@ export function AutosInfracaoPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Autos de Infração</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Exportar para CSV">
+            <IconButton onClick={handleExportarCSV} disabled={!autos?.items.length}>
+              <FileDownload />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Exportar para Excel">
+            <IconButton onClick={handleExportarExcel} disabled={!autos?.items.length}>
+              <TableChart />
+            </IconButton>
+          </Tooltip>
           <Button
             variant="outlined"
             startIcon={<DashboardIcon />}
@@ -165,9 +276,7 @@ export function AutosInfracaoPage() {
             <Typography variant="subtitle2" color="text.secondary">
               Total Lavrado
             </Typography>
-            <Typography variant="h5">
-              {formatarMoeda(valores?.total_lavrado || 0)}
-            </Typography>
+            <Typography variant="h5">{formatarMoeda(valores?.total_lavrado || 0)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={3}>
@@ -200,7 +309,7 @@ export function AutosInfracaoPage() {
         </Grid>
       </Grid>
 
-      {/* Filtros */}
+      {/* Busca e Filtros */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">Filtros</Typography>
@@ -214,54 +323,126 @@ export function AutosInfracaoPage() {
         </Box>
 
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={8}>
             <TextField
-              select
               fullWidth
-              label="Status"
-              value={filtros.status}
-              onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}
+              placeholder="Buscar por número do auto, CPF/CNPJ ou nome do autuado..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
               size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={filtrosAbertos ? <ExpandLess /> : <ExpandMore />}
+              onClick={() => setFiltrosAbertos(!filtrosAbertos)}
             >
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="LAVRADO">Lavrado</MenuItem>
-              <MenuItem value="NOTIFICADO">Notificado</MenuItem>
-              <MenuItem value="PAGO">Pago</MenuItem>
-              <MenuItem value="EM_DEFESA">Em Defesa</MenuItem>
-              <MenuItem value="DEFERIDO">Deferido</MenuItem>
-              <MenuItem value="INDEFERIDO">Indeferido</MenuItem>
-              <MenuItem value="CANCELADO">Cancelado</MenuItem>
-            </TextField>
+              Filtros Avançados
+            </Button>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Data Início"
-              value={filtros.data_inicio}
-              onChange={(e) => setFiltros({ ...filtros, data_inicio: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Data Fim"
-              value={filtros.data_fim}
-              onChange={(e) => setFiltros({ ...filtros, data_fim: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button fullWidth variant="outlined" startIcon={<Search />}>
-              Pesquisar
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="text" onClick={handleLimparFiltros}>
+              Limpar Filtros
             </Button>
           </Grid>
         </Grid>
 
+        {/* Filtros Avançados (Colapsável) */}
+        <Collapse in={filtrosAbertos} timeout="auto" unmountOnExit>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Status"
+                value={filtros.status}
+                onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}
+                size="small"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="LAVRADO">Lavrado</MenuItem>
+                <MenuItem value="NOTIFICADO">Notificado</MenuItem>
+                <MenuItem value="PAGO">Pago</MenuItem>
+                <MenuItem value="EM_DEFESA">Em Defesa</MenuItem>
+                <MenuItem value="DEFERIDO">Deferido</MenuItem>
+                <MenuItem value="INDEFERIDO">Indeferido</MenuItem>
+                <MenuItem value="CANCELADO">Cancelado</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Data Início"
+                value={filtros.data_inicio}
+                onChange={(e) => setFiltros({ ...filtros, data_inicio: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Data Fim"
+                value={filtros.data_fim}
+                onChange={(e) => setFiltros({ ...filtros, data_fim: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Código da Infração"
+                value={filtros.codigo_infracao}
+                onChange={(e) => setFiltros({ ...filtros, codigo_infracao: e.target.value })}
+                size="small"
+                placeholder="Ex: 001"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Fiscal Autuante"
+                value={filtros.fiscal_autuante}
+                onChange={(e) => setFiltros({ ...filtros, fiscal_autuante: e.target.value })}
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Valor Mínimo"
+                value={filtros.valor_min}
+                onChange={(e) => setFiltros({ ...filtros, valor_min: e.target.value })}
+                size="small"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Valor Máximo"
+                value={filtros.valor_max}
+                onChange={(e) => setFiltros({ ...filtros, valor_max: e.target.value })}
+                size="small"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                }}
         <Collapse in={filtrosExpanded}>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
@@ -293,10 +474,52 @@ export function AutosInfracaoPage() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Número</TableCell>
-              <TableCell>Data Lavratura</TableCell>
-              <TableCell>Autuado</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'numero_auto'}
+                  direction={orderBy === 'numero_auto' ? order : 'asc'}
+                  onClick={() => handleRequestSort('numero_auto')}
+                >
+                  Número
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'data_lavratura'}
+                  direction={orderBy === 'data_lavratura' ? order : 'asc'}
+                  onClick={() => handleRequestSort('data_lavratura')}
+                >
+                  Data Lavratura
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'autuado_nome'}
+                  direction={orderBy === 'autuado_nome' ? order : 'asc'}
+                  onClick={() => handleRequestSort('autuado_nome')}
+                >
+                  Autuado
+                </TableSortLabel>
+              </TableCell>
               <TableCell>Infração</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'valor_total'}
+                  direction={orderBy === 'valor_total' ? order : 'asc'}
+                  onClick={() => handleRequestSort('valor_total')}
+                >
+                  Valor Total
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'status'}
+                  direction={orderBy === 'status' ? order : 'asc'}
+                  onClick={() => handleRequestSort('status')}
+                >
+                  Status
+                </TableSortLabel>
+              </TableCell>
               <TableCell>Valor Total</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="center">Ações</TableCell>
@@ -309,13 +532,20 @@ export function AutosInfracaoPage() {
                   Carregando...
                 </TableCell>
               </TableRow>
-            ) : autos?.items.length === 0 ? (
+            ) : !autos?.items.length ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
                   Nenhum auto encontrado
                 </TableCell>
               </TableRow>
             ) : (
+              autos.items.map((auto) => (
+                <TableRow
+                  key={auto.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/fiscal/autos-infracao/${auto.id}`)}
+                >
               autosPaginados.map((auto: any) => (
                 <TableRow key={auto.id} hover>
                   <TableCell>
@@ -332,7 +562,7 @@ export function AutosInfracaoPage() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">{auto.codigo_infracao}</Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 200, display: 'block' }}>
                       {auto.descricao_infracao.substring(0, 40)}...
                     </Typography>
                   </TableCell>
@@ -360,6 +590,11 @@ export function AutosInfracaoPage() {
             )}
           </TableBody>
         </Table>
+
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50, 100]}
+          component="div"
+          count={autos?.total || 0}
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"

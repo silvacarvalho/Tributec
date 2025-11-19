@@ -273,6 +273,26 @@ async def atualizar_imovel(
     return imovel
 
 
+@router.delete("/imoveis/{imovel_id}", response_model=ResponseBase)
+async def excluir_imovel(
+    imovel_id: UUID,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Exclui (ou inativa) um imóvel
+    """
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    service.inativar(imovel_id)
+
+    return ResponseBase(
+        sucesso=True,
+        mensagem="Imóvel inativado com sucesso"
+    )
+
+
 # =====================================================
 # ESTABELECIMENTOS
 # =====================================================
@@ -335,6 +355,61 @@ async def obter_estabelecimento(
     return estabelecimento
 
 
+@router.get("/estabelecimentos/ccm/{ccm}", response_model=EstabelecimentoResponse)
+async def buscar_por_ccm(
+    ccm: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Busca estabelecimento por CCM (Cadastro de Contribuintes Mobiliários)
+    """
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    estabelecimento = service.obter_por_ccm(ccm)
+
+    return estabelecimento
+
+
+@router.put("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse)
+async def atualizar_estabelecimento(
+    estabelecimento_id: UUID,
+    estabelecimento_update: EstabelecimentoUpdate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Atualiza dados de um estabelecimento
+    """
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    estabelecimento = service.atualizar(estabelecimento_id, estabelecimento_update)
+
+    return estabelecimento
+
+
+@router.delete("/estabelecimentos/{estabelecimento_id}", response_model=ResponseBase)
+async def excluir_estabelecimento(
+    estabelecimento_id: UUID,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Exclui (ou inativa) um estabelecimento
+    """
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    service.inativar(estabelecimento_id)
+
+    return ResponseBase(
+        sucesso=True,
+        mensagem="Estabelecimento inativado com sucesso"
+    )
+
+
 # =====================================================
 # LOGRADOUROS
 # =====================================================
@@ -380,3 +455,308 @@ async def listar_logradouros(
 
     pagina = (skip // limit) + 1 if limit > 0 else 1
     return criar_resposta_paginada(dados=logradouros, total=total, pagina=pagina, limite=limit)
+
+
+@router.get("/logradouros/{logradouro_id}", response_model=LogradouroResponse)
+async def obter_logradouro(
+    logradouro_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Obtém detalhes de um logradouro
+    """
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    logradouro = service.obter_por_id(logradouro_id)
+
+    return logradouro
+
+
+@router.get("/logradouros/codigo/{codigo}", response_model=LogradouroResponse)
+async def buscar_logradouro_por_codigo(
+    codigo: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Busca logradouro por código
+    """
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    logradouro = service.obter_por_codigo(codigo)
+
+    return logradouro
+
+
+@router.put("/logradouros/{logradouro_id}", response_model=LogradouroResponse)
+async def atualizar_logradouro(
+    logradouro_id: int,
+    logradouro_update: LogradouroCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Atualiza dados de um logradouro
+    """
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    logradouro = service.atualizar(logradouro_id, logradouro_update)
+
+    return logradouro
+
+
+@router.delete("/logradouros/{logradouro_id}", response_model=ResponseBase)
+async def excluir_logradouro(
+    logradouro_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Exclui um logradouro
+    """
+    from app.services.cadastro_service import LogradouroService
+
+    service = LogradouroService(db)
+    service.excluir(logradouro_id)
+
+    return ResponseBase(
+        sucesso=True,
+        mensagem="Logradouro excluído com sucesso"
+    )
+
+
+# =====================================================
+# ENDEREÇOS
+# =====================================================
+
+@router.post("/pessoas/{pessoa_id}/enderecos", response_model=EnderecoResponse, status_code=status.HTTP_201_CREATED)
+async def adicionar_endereco(
+    pessoa_id: UUID,
+    endereco: EnderecoCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Adiciona um novo endereço a uma pessoa
+    """
+    from app.services.cadastro_service import EnderecoService
+
+    service = EnderecoService(db)
+    novo_endereco = service.criar(pessoa_id, endereco)
+
+    return novo_endereco
+
+
+@router.put("/enderecos/{endereco_id}", response_model=EnderecoResponse)
+async def atualizar_endereco(
+    endereco_id: int,
+    endereco_update: EnderecoCreate,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Atualiza um endereço
+    """
+    from app.services.cadastro_service import EnderecoService
+
+    service = EnderecoService(db)
+    endereco = service.atualizar(endereco_id, endereco_update)
+
+    return endereco
+
+
+@router.delete("/enderecos/{endereco_id}", response_model=ResponseBase)
+async def excluir_endereco(
+    endereco_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Remove um endereço
+    """
+    from app.services.cadastro_service import EnderecoService
+
+    service = EnderecoService(db)
+    service.excluir(endereco_id)
+
+    return ResponseBase(
+        sucesso=True,
+        mensagem="Endereço removido com sucesso"
+    )
+
+
+@router.put("/enderecos/{endereco_id}/principal", response_model=EnderecoResponse)
+async def definir_endereco_principal(
+    endereco_id: int,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Define um endereço como principal
+    """
+    from app.services.cadastro_service import EnderecoService
+
+    service = EnderecoService(db)
+    endereco = service.definir_principal(endereco_id)
+
+    return endereco
+
+
+# =====================================================
+# VALIDAÇÕES
+# =====================================================
+
+@router.get("/validar/cpf/{cpf}")
+async def validar_cpf(
+    cpf: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Valida CPF e verifica se já existe no cadastro
+    """
+    from app.utils.cpf_validator import validar_cpf as validar_cpf_util
+    from app.services.cadastro_service import PessoaService
+
+    # Valida formato
+    cpf_valido = validar_cpf_util(cpf)
+
+    if not cpf_valido:
+        return {
+            "valido": False,
+            "existe": False,
+            "mensagem": "CPF inválido"
+        }
+
+    # Verifica se já existe
+    service = PessoaService(db)
+    try:
+        pessoa = service.obter_por_cpf(cpf)
+        existe = True
+        pessoa_id = str(pessoa.id)
+    except:
+        existe = False
+        pessoa_id = None
+
+    return {
+        "valido": True,
+        "existe": existe,
+        "pessoa_id": pessoa_id,
+        "mensagem": "CPF válido" if not existe else "CPF já cadastrado"
+    }
+
+
+@router.get("/validar/cnpj/{cnpj}")
+async def validar_cnpj(
+    cnpj: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Valida CNPJ e verifica se já existe no cadastro
+    """
+    from app.utils.cnpj_validator import validar_cnpj as validar_cnpj_util
+    from app.services.cadastro_service import PessoaService
+
+    # Valida formato
+    cnpj_valido = validar_cnpj_util(cnpj)
+
+    if not cnpj_valido:
+        return {
+            "valido": False,
+            "existe": False,
+            "mensagem": "CNPJ inválido"
+        }
+
+    # Verifica se já existe
+    service = PessoaService(db)
+    try:
+        pessoa = service.obter_por_cnpj(cnpj)
+        existe = True
+        pessoa_id = str(pessoa.id)
+    except:
+        existe = False
+        pessoa_id = None
+
+    return {
+        "valido": True,
+        "existe": existe,
+        "pessoa_id": pessoa_id,
+        "mensagem": "CNPJ válido" if not existe else "CNPJ já cadastrado"
+    }
+
+
+@router.get("/validar/inscricao/{inscricao}")
+async def validar_inscricao_imobiliaria(
+    inscricao: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Verifica se inscrição imobiliária já existe
+    """
+    from app.services.cadastro_service import ImovelService
+
+    service = ImovelService(db)
+    try:
+        imovel = service.obter_por_inscricao(inscricao)
+        return {
+            "existe": True,
+            "imovel_id": str(imovel.id),
+            "mensagem": "Inscrição já cadastrada"
+        }
+    except:
+        return {
+            "existe": False,
+            "imovel_id": None,
+            "mensagem": "Inscrição disponível"
+        }
+
+
+@router.get("/validar/ccm/{ccm}")
+async def validar_ccm(
+    ccm: str,
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Verifica se CCM já existe
+    """
+    from app.services.cadastro_service import EstabelecimentoService
+
+    service = EstabelecimentoService(db)
+    try:
+        estabelecimento = service.obter_por_ccm(ccm)
+        return {
+            "existe": True,
+            "estabelecimento_id": str(estabelecimento.id),
+            "mensagem": "CCM já cadastrado"
+        }
+    except:
+        return {
+            "existe": False,
+            "estabelecimento_id": None,
+            "mensagem": "CCM disponível"
+        }
+
+
+# =====================================================
+# CONSULTAS EXTERNAS
+# =====================================================
+
+@router.get("/cep/{cep}")
+async def buscar_cep(
+    cep: str,
+    usuario: dict = Depends(get_current_user)
+):
+    """
+    Consulta CEP no ViaCEP
+    """
+    from app.utils.viacep import buscar_cep as buscar_cep_util
+
+    dados = await buscar_cep_util(cep)
+    return dados
