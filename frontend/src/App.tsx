@@ -41,6 +41,11 @@ import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
 import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
 import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'  
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
+import { DashboardAdminPage } from './pages/admin/DashboardAdminPage'
+import { UsuariosPage } from './pages/admin/UsuariosPage'
+import { LogsAuditoriaPage } from './pages/admin/LogsAuditoriaPage'
+import { PapeisPermissoesPage } from './pages/admin/PapeisPermissoesPage'
+import { ConfiguracoesSistemaPage } from './pages/admin/ConfiguracoesSistemaPage'
 
 function App() {
   const { isAuthenticated } = useAuthStore()
@@ -100,6 +105,13 @@ function App() {
           {/* DTD - Domicílio Tributário Digital */}
           <Route path="/admin/dtd" element={<DTDListPage />} />
           <Route path="/admin/dtd/:dtdId/mensagens" element={<DTDMensagensPage />} />
+
+          {/* Admin */}
+          <Route path="/admin/dashboard" element={<DashboardAdminPage />} />
+          <Route path="/admin/usuarios" element={<UsuariosPage />} />
+          <Route path="/admin/logs" element={<LogsAuditoriaPage />} />
+          <Route path="/admin/papeis" element={<PapeisPermissoesPage />} />
+          <Route path="/admin/configuracoes" element={<ConfiguracoesSistemaPage />} />
 
           {/* Portal do Contribuinte */}
           <Route path="/portal" element={<DashboardContribuinte />} />
