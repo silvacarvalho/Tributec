@@ -16,9 +16,20 @@ import {
   MenuItem,
   Grid,
   IconButton,
-  Tooltip
+  Tooltip,
+  TablePagination,
+  Collapse
 } from '@mui/material'
-import { Add, Search, Visibility, Assessment } from '@mui/icons-material'
+import {
+  Add,
+  Search,
+  Visibility,
+  Assessment,
+  FileDownload,
+  ExpandMore,
+  ExpandLess,
+  Dashboard as DashboardIcon
+} from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { fiscalService } from '../../services/fiscalService'
 import { LavrarAutoDialog } from '../../components/fiscal/LavrarAutoDialog'
@@ -41,9 +52,14 @@ export function AutosInfracaoPage() {
   const [filtros, setFiltros] = useState({
     status: '',
     data_inicio: '',
-    data_fim: ''
+    data_fim: '',
+    numero_auto: '',
+    autuado_nome: ''
   })
   const [dialogAberto, setDialogAberto] = useState(false)
+  const [filtrosExpanded, setFiltrosExpanded] = useState(false)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
 
   const { data: autos, isLoading } = useQuery({
     queryKey: ['autos-infracao', filtros],
@@ -76,13 +92,62 @@ export function AutosInfracaoPage() {
     navigate(`/fiscal/autos/${autoId}`)
   }
 
+  const handleChangePage = (_: unknown, newPage: number) => {
+    setPage(newPage)
+  }
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10))
+    setPage(0)
+  }
+
+  const handleExportarExcel = () => {
+    // Simular exportação
+    const csvContent = [
+      ['Número', 'Data', 'Autuado', 'Infração', 'Valor', 'Status'].join(';'),
+      ...(autos?.items || []).map((auto: any) =>
+        [
+          auto.numero_auto,
+          formatarData(auto.data_lavratura),
+          auto.autuado_nome,
+          auto.codigo_infracao,
+          auto.valor_total,
+          auto.status
+        ].join(';')
+      )
+    ].join('\n')
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `autos-infracao-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  const autosPaginados = autos?.items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) || []
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Autos de Infração</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<DashboardIcon />}
+            onClick={() => navigate('/fiscal/dashboard')}
+          >
+            Dashboard
+          </Button>
           <Button variant="outlined" startIcon={<Assessment />} onClick={() => navigate('/fiscal/catalogo')}>
             Catálogo
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownload />}
+            onClick={handleExportarExcel}
+            disabled={!autos?.items || autos.items.length === 0}
+          >
+            Exportar
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={() => setDialogAberto(true)}>
             Lavrar Auto
@@ -137,6 +202,17 @@ export function AutosInfracaoPage() {
 
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">Filtros</Typography>
+          <Button
+            size="small"
+            onClick={() => setFiltrosExpanded(!filtrosExpanded)}
+            endIcon={filtrosExpanded ? <ExpandLess /> : <ExpandMore />}
+          >
+            {filtrosExpanded ? 'Ocultar' : 'Mostrar'} Avançado
+          </Button>
+        </Box>
+
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
@@ -185,6 +261,31 @@ export function AutosInfracaoPage() {
             </Button>
           </Grid>
         </Grid>
+
+        <Collapse in={filtrosExpanded}>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Número do Auto"
+                value={filtros.numero_auto}
+                onChange={(e) => setFiltros({ ...filtros, numero_auto: e.target.value })}
+                size="small"
+                placeholder="Ex: 2024/001"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Nome do Autuado"
+                value={filtros.autuado_nome}
+                onChange={(e) => setFiltros({ ...filtros, autuado_nome: e.target.value })}
+                size="small"
+                placeholder="Digite o nome"
+              />
+            </Grid>
+          </Grid>
+        </Collapse>
       </Paper>
 
       {/* Tabela */}
@@ -215,7 +316,7 @@ export function AutosInfracaoPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              autos?.items.map((auto) => (
+              autosPaginados.map((auto: any) => (
                 <TableRow key={auto.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">
@@ -259,6 +360,17 @@ export function AutosInfracaoPage() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={autos?.items.length || 0}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Linhas por página:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+        />
       </TableContainer>
     </Box>
   )
