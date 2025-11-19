@@ -43,6 +43,9 @@ import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
 import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
 import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
 import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'
+import { ImportacaoDadosPage } from './pages/fiscal/ImportacaoDadosPage'
+import { NotificacoesFiscaisPage } from './pages/fiscal/NotificacoesFiscaisPage'
+import { ProcessosFiscaisPage } from './pages/fiscal/ProcessosFiscaisPage'
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 import { DashboardAdminPage } from './pages/admin/DashboardAdminPage'
 import { UsuariosPage } from './pages/admin/UsuariosPage'
@@ -107,6 +110,9 @@ function App() {
           <Route path="/fiscal/autos/:id" element={<AutoDetalhesPage />} />
           <Route path="/fiscal/catalogo" element={<CatalogoInfracoesPage />} />
           <Route path="/fiscal/relatorios" element={<RelatoriosFiscaisPage />} />
+          <Route path="/fiscal/importacao" element={<ImportacaoDadosPage />} />
+          <Route path="/fiscal/notificacoes" element={<NotificacoesFiscaisPage />} />
+          <Route path="/fiscal/processos" element={<ProcessosFiscaisPage />} />
 
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />

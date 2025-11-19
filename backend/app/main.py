@@ -131,6 +131,10 @@ tags_metadata = [
         "description": "Parcelamentos e renegociação de débitos",
     },
     {
+        "name": "Arrecadação",
+        "description": "Dashboard de arrecadação, pagamentos, PIX, boletos, relatórios e conciliação bancária",
+    },
+    {
         "name": "Fiscal",
         "description": "Autos de infração, catálogo de infrações, intimações e fiscalização tributária",
     },
@@ -218,6 +222,7 @@ from app.api.dtd import router as dtd_router
 from app.api.portal import router as portal_router
 from app.api.fiscal import router as fiscal_router
 from app.api.parametros import router as parametros_router
+from app.api.arrecadacao import router as arrecadacao_router
 
 # Incluir routers na aplicação
 app.include_router(auth_router, prefix="/api/v1")
@@ -227,6 +232,7 @@ app.include_router(dtd_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")
 app.include_router(fiscal_router, prefix="/api/v1")
 app.include_router(parametros_router, prefix="/api/v1")
+app.include_router(arrecadacao_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
