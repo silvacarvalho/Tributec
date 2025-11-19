@@ -18,6 +18,10 @@ import { ISSQNPage } from './pages/tributario/ISSQNPage'
 import { AliquotasPage } from './pages/configuracoes/AliquotasPage'
 import { IsencoesPage } from './pages/configuracoes/IsencoesPage'
 import { ParcelamentosPage } from './pages/arrecadacao/ParcelamentosPage'
+import { DashboardArrecadacaoPage } from './pages/arrecadacao/DashboardArrecadacaoPage'
+import { DebitosPage } from './pages/arrecadacao/DebitosPage'
+import { InadimplenciaPage } from './pages/arrecadacao/InadimplenciaPage'
+import { RelatoriosArrecadacaoPage } from './pages/arrecadacao/RelatoriosArrecadacaoPage'
 import { DTDListPage } from './pages/admin/DTDListPage'
 import { DTDMensagensPage } from './pages/contribuinte/DTDMensagensPage'
 import { DashboardContribuinte } from './pages/portal/DashboardContribuinte'
@@ -27,6 +31,10 @@ import { MeusEstabelecimentosPage } from './pages/portal/MeusEstabelecimentosPag
 import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
 import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
 import { AutosInfracaoPage } from './pages/fiscal/AutosInfracaoPage'
+import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
+import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
+import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
+import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 
 function App() {
@@ -60,10 +68,18 @@ function App() {
           <Route path="/tributario/issqn" element={<ISSQNPage />} />
 
           {/* Arrecadação */}
+          <Route path="/arrecadacao/dashboard" element={<DashboardArrecadacaoPage />} />
+          <Route path="/arrecadacao/debitos" element={<DebitosPage />} />
+          <Route path="/arrecadacao/inadimplencia" element={<InadimplenciaPage />} />
           <Route path="/arrecadacao/parcelamentos" element={<ParcelamentosPage />} />
+          <Route path="/arrecadacao/relatorios" element={<RelatoriosArrecadacaoPage />} />
 
           {/* Fiscal */}
-          <Route path="/fiscal/autos-infracao" element={<AutosInfracaoPage />} />
+          <Route path="/fiscal/dashboard" element={<DashboardFiscalPage />} />
+          <Route path="/fiscal/autos" element={<AutosInfracaoPage />} />
+          <Route path="/fiscal/autos/:id" element={<AutoDetalhesPage />} />
+          <Route path="/fiscal/catalogo" element={<CatalogoInfracoesPage />} />
+          <Route path="/fiscal/relatorios" element={<RelatoriosFiscaisPage />} />
 
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />

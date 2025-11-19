@@ -1,0 +1,41 @@
+[run]
+# Configuração de cobertura de testes
+source = app
+omit =
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */migrations/*
+    */alembic/*
+    */venv/*
+    */env/*
+    */.venv/*
+    */site-packages/*
+    app/main.py
+branch = True
+
+[report]
+# Configuração de relatórios
+precision = 2
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+    pass
+    \.\.\.
+
+[html]
+# Configuração de relatório HTML
+directory = htmlcov
+title = Tributec - Cobertura de Testes
+
+[xml]
+# Configuração de relatório XML
+output = coverage.xml
