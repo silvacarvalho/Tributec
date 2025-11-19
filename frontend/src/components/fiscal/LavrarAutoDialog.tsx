@@ -18,12 +18,15 @@ import {
   Divider,
   InputAdornment,
   IconButton,
+  CircularProgress
 } from '@mui/material'
 import { Search, Warning } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-toastify'
 import { fiscalService } from '../../services/fiscalService'
 import { parametroService } from '../../services/parametroService'
-import { ParameterInfoIcon } from '../common/ParameterInfoIcon'
+import { BuscaAutuadoField } from './BuscaAutuadoField'
+import { BuscaFiscalField } from './BuscaFiscalField'
 import type { AutoInfracaoCreate } from '../../types/fiscal'
 
 interface LavrarAutoDialogProps {
@@ -87,6 +90,19 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
       queryClient.invalidateQueries({ queryKey: ['valores-autos'] })
       onClose()
       handleReset()
+      toast.success('Auto de infração lavrado com sucesso!')
+      onClose()
+      setFormData({
+        codigo_infracao: '',
+        autuado_id: '',
+        fiscal_autuante_id: '',
+        local_infracao: '',
+        valor_base_calculo: undefined,
+        observacoes: ''
+      })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Erro ao lavrar auto de infração')
     }
   })
 
@@ -388,6 +404,21 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
                 InputLabelProps={{ shrink: true }}
                 required
                 disabled={!infracaoSelecionada}
+            {/* Autuado (Busca com Autocomplete) */}
+            <Grid item xs={12} md={6}>
+              <BuscaAutuadoField
+                value={formData.autuado_id || ''}
+                onChange={(pessoaId) => handleChange('autuado_id', pessoaId)}
+                required
+              />
+            </Grid>
+
+            {/* Fiscal Autuante (Busca com Autocomplete) */}
+            <Grid item xs={12} md={6}>
+              <BuscaFiscalField
+                value={formData.fiscal_autuante_id || ''}
+                onChange={(fiscalId) => handleChange('fiscal_autuante_id', fiscalId)}
+                required
               />
             </Grid>
 

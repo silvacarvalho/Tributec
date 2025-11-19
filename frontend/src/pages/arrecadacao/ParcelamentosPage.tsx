@@ -20,7 +20,10 @@ import {
   Add as AddIcon,
   Visibility as ViewIcon,
   Cancel as CancelIcon,
+  GetApp as DownloadIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-toastify'
 import { tributarioService } from '@/services/tributarioService'
@@ -32,6 +35,7 @@ import { formatters } from '@/utils/formatters'
 
 export function ParcelamentosPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(20)
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -100,15 +104,60 @@ export function ParcelamentosPage() {
     return labels[status]
   }
 
+  const handleExportar = () => {
+    const csvContent = [
+      [
+        'Número',
+        'Data',
+        'Valor Original',
+        'Entrada',
+        'Parcelado',
+        'Parcelas',
+        'Valor Parcela',
+        'Status',
+      ].join(';'),
+      ...(data?.itens || []).map((parcelamento: any) =>
+        [
+          parcelamento.numero_parcelamento,
+          formatters.date(parcelamento.created_at),
+          parcelamento.valor_original,
+          parcelamento.valor_entrada,
+          parcelamento.valor_parcelado,
+          parcelamento.numero_parcelas,
+          parcelamento.valor_parcela,
+          getStatusLabel(parcelamento.status),
+        ].join(';')
+      ),
+    ].join('\n')
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `parcelamentos_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Parcelamentos
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          Novo Parcelamento
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<DashboardIcon />}
+            onClick={() => navigate('/arrecadacao/dashboard')}
+          >
+            Dashboard
+          </Button>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportar}>
+            Exportar
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+            Novo Parcelamento
+          </Button>
+        </Box>
       </Box>
 
       <Card sx={{ mb: 2, p: 2 }}>
