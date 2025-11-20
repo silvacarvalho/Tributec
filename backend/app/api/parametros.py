@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date
 
-from app.db.session import get_db
+from app.db.base import get_db
 from app.schemas.fiscal import (
     ParametroSistemaCreate,
     ParametroSistemaUpdate,

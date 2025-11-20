@@ -9,7 +9,7 @@ from datetime import date
 from uuid import UUID
 from decimal import Decimal
 
-from app.db.session import get_db
+from app.db.base import get_db
 from app.schemas.fiscal import (
     # Catálogo
     CatalogoInfracaoCreate,
