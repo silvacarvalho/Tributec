@@ -70,9 +70,9 @@ def upgrade() -> None:
     )
 
     # Criar índices para parametros_sistema
-    op.create_index('idx_parametros_modulo_categoria', 'parametros_sistema', ['modulo', 'categoria'], schema='admin')
-    op.create_index('idx_parametros_chave', 'parametros_sistema', ['chave'], schema='admin')
-    op.create_index('idx_parametros_ano', 'parametros_sistema', ['ano_vigencia'], schema='admin')
+    op.create_index('idx_parametros_sistema_modulo_categoria', 'parametros_sistema', ['modulo', 'categoria'], schema='admin')
+    op.create_index('idx_parametros_sistema_chave', 'parametros_sistema', ['chave'], schema='admin')
+    op.create_index('idx_parametros_sistema_ano', 'parametros_sistema', ['ano_vigencia'], schema='admin')
 
     # Criar tabela fiscal.catalogo_infracoes
     op.create_table(
@@ -142,9 +142,9 @@ def downgrade() -> None:
     op.execute('DROP TYPE IF EXISTS tipomulta')
 
     # Remover índices de parametros_sistema
-    op.drop_index('idx_parametros_ano', table_name='parametros_sistema', schema='admin')
-    op.drop_index('idx_parametros_chave', table_name='parametros_sistema', schema='admin')
-    op.drop_index('idx_parametros_modulo_categoria', table_name='parametros_sistema', schema='admin')
+    op.drop_index('idx_parametros_sistema_ano', table_name='parametros_sistema', schema='admin')
+    op.drop_index('idx_parametros_sistema_chave', table_name='parametros_sistema', schema='admin')
+    op.drop_index('idx_parametros_sistema_modulo_categoria', table_name='parametros_sistema', schema='admin')
 
     # Remover tabela parametros_sistema
     op.drop_table('parametros_sistema', schema='admin')
