@@ -13,9 +13,9 @@ from app.db.base import get_db
 from app.models.admin import Usuario, DomicilioTributarioDigital
 from app.models.cadastro import Pessoa, Imovel, Estabelecimento
 from app.models.tributario import (
-    LancamentoIPTU, ITBI, DeclaracaoISSQN,
-    Parcelamento, ParcelaPagamento
+    IPTULancamento, ITBIGuia, ISSQNDeclaracao
 )
+from app.models.arrecadacao import Parcelamento, ParcelamentoParcela
 from app.schemas.cadastro import PessoaResponse, ImovelResponse, EstabelecimentoResponse
 
 
@@ -60,14 +60,14 @@ def obter_dashboard_contribuinte(
 
     # Débitos em aberto (IPTU)
     debitos_iptu = db.query(
-        func.count(LancamentoIPTU.id),
-        func.sum(LancamentoIPTU.valor_total)
+        func.count(IPTULancamento.id),
+        func.sum(IPTULancamento.valor_total)
     ).filter(
         and_(
-            LancamentoIPTU.imovel_id.in_(
+            IPTULancamento.imovel_id.in_(
                 db.query(Imovel.id).filter(Imovel.proprietario_id == pessoa.id)
             ),
-            LancamentoIPTU.situacao.in_(['EM_ABERTO', 'VENCIDO'])
+            IPTULancamento.situacao.in_(['EM_ABERTO', 'VENCIDO'])
         )
     ).first()
 
@@ -102,13 +102,13 @@ def obter_dashboard_contribuinte(
     hoje = date.today()
     proximos_30_dias = hoje + timedelta(days=30)
 
-    proximos_vencimentos = db.query(LancamentoIPTU).filter(
+    proximos_vencimentos = db.query(IPTULancamento).filter(
         and_(
-            LancamentoIPTU.imovel_id.in_(
+            IPTULancamento.imovel_id.in_(
                 db.query(Imovel.id).filter(Imovel.proprietario_id == pessoa.id)
             ),
-            LancamentoIPTU.situacao == 'EM_ABERTO',
-            LancamentoIPTU.data_vencimento.between(hoje, proximos_30_dias)
+            IPTULancamento.situacao == 'EM_ABERTO',
+            IPTULancamento.data_vencimento.between(hoje, proximos_30_dias)
         )
     ).limit(5).all()
 
@@ -192,12 +192,12 @@ def obter_debitos_imovel(
         )
 
     # Buscar débitos de IPTU
-    debitos = db.query(LancamentoIPTU).filter(
+    debitos = db.query(IPTULancamento).filter(
         and_(
-            LancamentoIPTU.imovel_id == imovel_id,
-            LancamentoIPTU.situacao.in_(['EM_ABERTO', 'VENCIDO'])
+            IPTULancamento.imovel_id == imovel_id,
+            IPTULancamento.situacao.in_(['EM_ABERTO', 'VENCIDO'])
         )
-    ).order_by(LancamentoIPTU.data_vencimento.desc()).all()
+    ).order_by(IPTULancamento.data_vencimento.desc()).all()
 
     return {
         "imovel_id": str(imovel_id),
@@ -274,11 +274,11 @@ def obter_declaracoes_estabelecimento(
         )
 
     # Buscar declarações de ISSQN
-    declaracoes = db.query(DeclaracaoISSQN).filter(
-        DeclaracaoISSQN.estabelecimento_id == estabelecimento_id
+    declaracoes = db.query(ISSQNDeclaracao).filter(
+        ISSQNDeclaracao.estabelecimento_id == estabelecimento_id
     ).order_by(
-        DeclaracaoISSQN.ano_competencia.desc(),
-        DeclaracaoISSQN.mes_competencia.desc()
+        ISSQNDeclaracao.ano_competencia.desc(),
+        ISSQNDeclaracao.mes_competencia.desc()
     ).limit(12).all()
 
     return {
@@ -323,10 +323,10 @@ def listar_meus_parcelamentos(
     resultado = []
     for p in parcelamentos:
         # Contar parcelas pagas
-        parcelas_pagas = db.query(func.count(ParcelaPagamento.id)).filter(
+        parcelas_pagas = db.query(func.count(ParcelamentoParcela.id)).filter(
             and_(
-                ParcelaPagamento.parcelamento_id == p.id,
-                ParcelaPagamento.situacao == 'PAGO'
+                ParcelamentoParcela.parcelamento_id == p.id,
+                ParcelamentoParcela.situacao == 'PAGO'
             )
         ).scalar() or 0
 
@@ -377,9 +377,9 @@ def obter_parcelas_parcelamento(
         )
 
     # Buscar parcelas
-    parcelas = db.query(ParcelaPagamento).filter(
-        ParcelaPagamento.parcelamento_id == parcelamento_id
-    ).order_by(ParcelaPagamento.numero_parcela).all()
+    parcelas = db.query(ParcelamentoParcela).filter(
+        ParcelamentoParcela.parcelamento_id == parcelamento_id
+    ).order_by(ParcelamentoParcela.numero_parcela).all()
 
     return {
         "parcelamento_id": str(parcelamento_id),
@@ -420,10 +420,10 @@ def listar_meus_debitos(
     imoveis_ids = [i.id for i in db.query(Imovel.id).filter(Imovel.proprietario_id == pessoa.id).all()]
 
     if imoveis_ids:
-        debitos_iptu = db.query(LancamentoIPTU).filter(
+        debitos_iptu = db.query(IPTULancamento).filter(
             and_(
-                LancamentoIPTU.imovel_id.in_(imoveis_ids),
-                LancamentoIPTU.situacao.in_(['EM_ABERTO', 'VENCIDO'])
+                IPTULancamento.imovel_id.in_(imoveis_ids),
+                IPTULancamento.situacao.in_(['EM_ABERTO', 'VENCIDO'])
             )
         ).all()
 
