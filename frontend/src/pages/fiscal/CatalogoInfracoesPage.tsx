@@ -23,6 +23,7 @@ import {
   Switch,
   FormControlLabel,
   Divider,
+  Tooltip
 } from '@mui/material'
 import {
   Add,
@@ -30,7 +31,7 @@ import {
   FilterList,
   Visibility,
   ToggleOff,
-  ToggleOn,
+  ToggleOn
 } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fiscalService } from '../../services/fiscalService'
@@ -39,11 +40,18 @@ import type { CatalogoInfracao, CatalogoInfracaoCreate, CatalogoInfracaoUpdate }
 const GRAVIDADES = ['LEVE', 'MÉDIA', 'GRAVE', 'GRAVÍSSIMA']
 const TIPOS_MULTA = ['FIXA_UFM', 'PERCENTUAL', 'MISTA']
 
+const GRAVIDADE_COLORS: Record<string, 'default' | 'warning' | 'error'> = {
+  LEVE: 'default',
+  MEDIA: 'warning',
+  GRAVE: 'error',
+  GRAVISSIMA: 'error',
+}
+
 export function CatalogoInfracoesPage() {
   const queryClient = useQueryClient()
   const [filtros, setFiltros] = useState({
-    ativo: '',
-    gravidade: '',
+    ativo: 'true',
+    gravidade: ''
   })
   const [dialogAberto, setDialogAberto] = useState(false)
   const [dialogDetalhes, setDialogDetalhes] = useState(false)
@@ -66,7 +74,10 @@ export function CatalogoInfracoesPage() {
 
   const { data: catalogo, isLoading } = useQuery({
     queryKey: ['catalogo-infracoes', filtros],
-    queryFn: () => fiscalService.listarCatalogoInfracoes(filtros as any),
+    queryFn: () => fiscalService.listarCatalogoInfracoes({
+      ativo: filtros.ativo === 'true' ? true : filtros.ativo === 'false' ? false : undefined,
+      gravidade: filtros.gravidade || undefined
+    })
   })
 
   const criarMutation = useMutation({
@@ -112,51 +123,9 @@ export function CatalogoInfracoesPage() {
       observacoes: infracao.observacoes || '',
     })
     setDialogAberto(true)
-    setModoEdicao(true)
   }
 
   const handleVerDetalhes = (infracao: CatalogoInfracao) => {
-    setInfracaoSelecionada(infracao)
-    setDialogDetalhes(true)
-  }
-
-const GRAVIDADE_COLORS: Record<string, 'default' | 'warning' | 'error'> = {
-  LEVE: 'default',
-  MEDIA: 'warning',
-  GRAVE: 'error',
-  GRAVISSIMA: 'error',
-}
-
-export function CatalogoInfracoesPage() {
-  const [filtros, setFiltros] = useState({
-    ativo: 'true',
-    gravidade: ''
-  })
-  const [dialogAberto, setDialogAberto] = useState(false)
-  const [infracaoSelecionada, setInfracaoSelecionada] = useState<CatalogoInfracao | null>(null)
-  const [modoVisualizacao, setModoVisualizacao] = useState(false)
-
-  const { data: catalogo, isLoading } = useQuery({
-    queryKey: ['catalogo-infracoes', filtros],
-    queryFn: () => fiscalService.listarCatalogoInfracoes({
-      ativo: filtros.ativo === 'true' ? true : filtros.ativo === 'false' ? false : undefined,
-      gravidade: filtros.gravidade || undefined
-    })
-  })
-
-  const handleNovo = () => {
-    setInfracaoSelecionada(null)
-    setModoVisualizacao(false)
-    setDialogAberto(true)
-  }
-
-  const handleEditar = (infracao: CatalogoInfracao) => {
-    setInfracaoSelecionada(infracao)
-    setModoVisualizacao(false)
-    setDialogAberto(true)
-  }
-
-  const handleVisualizar = (infracao: CatalogoInfracao) => {
     setInfracaoSelecionada(infracao)
     setDialogDetalhes(true)
   }
@@ -208,15 +177,6 @@ export function CatalogoInfracoesPage() {
       default:
         return 'default'
     }
-    setModoVisualizacao(true)
-    setDialogAberto(true)
-  }
-
-  const formatarMoeda = (valor: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor)
   }
 
   return (
@@ -224,59 +184,9 @@ export function CatalogoInfracoesPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h4">Catálogo de Infrações</Typography>
         <Button variant="contained" startIcon={<Add />} onClick={handleAbrirCriar}>
-        <Button variant="contained" startIcon={<Add />} onClick={handleNovo}>
           Nova Infração
         </Button>
       </Box>
-
-      {/* Filtros */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item>
-            <FilterList color="action" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Status"
-              value={filtros.ativo}
-              onChange={(e) => setFiltros({ ...filtros, ativo: e.target.value })}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="true">Ativos</MenuItem>
-              <MenuItem value="false">Inativos</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Gravidade"
-              value={filtros.gravidade}
-              onChange={(e) => setFiltros({ ...filtros, gravidade: e.target.value })}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {GRAVIDADES.map((grav) => (
-                <MenuItem key={grav} value={grav}>
-                  {grav}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-      {/* Diálogo de CRUD */}
-      <CatalogoInfracaoDialog
-        open={dialogAberto}
-        onClose={() => {
-          setDialogAberto(false)
-          setInfracaoSelecionada(null)
-          setModoVisualizacao(false)
-        }}
-        infracao={infracaoSelecionada}
-        readOnly={modoVisualizacao}
-      />
 
       {/* Estatísticas */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -323,40 +233,39 @@ export function CatalogoInfracoesPage() {
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
+          <Grid item>
+            <FilterList color="action" />
+          </Grid>
+          <Grid item xs={12} md={3}>
             <TextField
               select
               fullWidth
+              size="small"
               label="Status"
               value={filtros.ativo}
               onChange={(e) => setFiltros({ ...filtros, ativo: e.target.value })}
-              size="small"
             >
               <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="true">Ativas</MenuItem>
-              <MenuItem value="false">Inativas</MenuItem>
+              <MenuItem value="true">Ativos</MenuItem>
+              <MenuItem value="false">Inativos</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <TextField
               select
               fullWidth
+              size="small"
               label="Gravidade"
               value={filtros.gravidade}
               onChange={(e) => setFiltros({ ...filtros, gravidade: e.target.value })}
-              size="small"
             >
               <MenuItem value="">Todas</MenuItem>
-              <MenuItem value="LEVE">Leve</MenuItem>
-              <MenuItem value="MEDIA">Média</MenuItem>
-              <MenuItem value="GRAVE">Grave</MenuItem>
-              <MenuItem value="GRAVISSIMA">Gravíssima</MenuItem>
+              {GRAVIDADES.map((grav) => (
+                <MenuItem key={grav} value={grav}>
+                  {grav}
+                </MenuItem>
+              ))}
             </TextField>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Button fullWidth variant="outlined" startIcon={<Search />}>
-              Pesquisar
-            </Button>
           </Grid>
         </Grid>
       </Paper>
@@ -374,14 +283,6 @@ export function CatalogoInfracoesPage() {
               <TableCell align="center"><strong>Valor</strong></TableCell>
               <TableCell align="center"><strong>Status</strong></TableCell>
               <TableCell align="center"><strong>Ações</strong></TableCell>
-              <TableCell>Código</TableCell>
-              <TableCell>Descrição</TableCell>
-              <TableCell>Base Legal</TableCell>
-              <TableCell>Gravidade</TableCell>
-              <TableCell>Tipo Multa</TableCell>
-              <TableCell>Valor</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -401,20 +302,6 @@ export function CatalogoInfracoesPage() {
               catalogo.items.map((infracao) => (
                 <TableRow key={infracao.id} hover>
                   <TableCell>{infracao.codigo}</TableCell>
-            ) : catalogo?.items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center">
-                  Nenhuma infração encontrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              catalogo?.items.map((infracao) => (
-                <TableRow key={infracao.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {infracao.codigo}
-                    </Typography>
-                  </TableCell>
                   <TableCell>
                     <Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>
                       {infracao.descricao}
@@ -443,77 +330,23 @@ export function CatalogoInfracoesPage() {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton size="small" onClick={() => handleVisualizar(infracao)}>
-                      <Visibility fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleAbrirEditar(infracao)}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleToggleAtivo(infracao)}
-                      color={infracao.ativo ? 'error' : 'success'}
-                    >
-                      {infracao.ativo ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
-                    </IconButton>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary">
-                      {infracao.base_legal || infracao.artigo_lei || '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={infracao.gravidade}
-                      color={GRAVIDADE_COLORS[infracao.gravidade]}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="caption">
-                      {infracao.tipo_multa}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {infracao.tipo_multa === 'FIXA_UFM' && (
-                      <Typography variant="body2">
-                        {infracao.valor_multa_ufm} UFM
-                      </Typography>
-                    )}
-                    {infracao.tipo_multa === 'PERCENTUAL' && (
-                      <Typography variant="body2">
-                        {infracao.percentual_multa}%
-                      </Typography>
-                    )}
-                    {infracao.tipo_multa === 'MISTA' && (
-                      <Typography variant="body2">
-                        {infracao.valor_multa_ufm} UFM + {infracao.percentual_multa}%
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={infracao.ativo ? 'Ativa' : 'Inativa'}
-                      color={infracao.ativo ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
                     <Tooltip title="Visualizar">
-                      <IconButton
-                        size="small"
-                        color="info"
-                        onClick={() => handleVisualizar(infracao)}
-                      >
+                      <IconButton size="small" onClick={() => handleVerDetalhes(infracao)}>
                         <Visibility fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Editar">
+                      <IconButton size="small" onClick={() => handleAbrirEditar(infracao)}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={infracao.ativo ? 'Desativar' : 'Ativar'}>
                       <IconButton
                         size="small"
-                        color="primary"
-                        onClick={() => handleEditar(infracao)}
+                        onClick={() => handleToggleAtivo(infracao)}
+                        color={infracao.ativo ? 'error' : 'success'}
                       >
-                        <Edit fontSize="small" />
+                        {infracao.ativo ? <ToggleOff fontSize="small" /> : <ToggleOn fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                   </TableCell>
