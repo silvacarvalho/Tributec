@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 
-from app.core.deps import get_current_user, get_db
+from app.core.security import get_current_user
+from app.db.base import get_db
 from app.models.admin import Usuario, DomicilioTributarioDigital
 from app.models.cadastro import Pessoa, Imovel, Estabelecimento
 from app.models.tributario import (
