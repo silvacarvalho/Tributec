@@ -81,7 +81,6 @@ export function AutosInfracaoPage() {
     codigo_infracao: '',
     valor_min: '',
     valor_max: '',
-  })
     numero_auto: '',
     autuado_nome: ''
   })

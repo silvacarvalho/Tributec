@@ -111,13 +111,14 @@ export function CatalogoInfracoesPage() {
       ativo: infracao.ativo,
       observacoes: infracao.observacoes || '',
     })
-  Tooltip
-} from '@mui/material'
-import { Add, Edit, Search, Visibility } from '@mui/icons-material'
-import { useQuery } from '@tanstack/react-query'
-import { fiscalService } from '../../services/fiscalService'
-import { CatalogoInfracaoDialog } from '../../components/fiscal/CatalogoInfracaoDialog'
-import type { CatalogoInfracao } from '../../types/fiscal'
+    setDialogAberto(true)
+    setModoEdicao(true)
+  }
+
+  const handleVerDetalhes = (infracao: CatalogoInfracao) => {
+    setInfracaoSelecionada(infracao)
+    setDialogDetalhes(true)
+  }
 
 const GRAVIDADE_COLORS: Record<string, 'default' | 'warning' | 'error'> = {
   LEVE: 'default',
