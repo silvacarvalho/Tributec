@@ -18,6 +18,9 @@ import {
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import type { Pessoa, PessoaCreate, PessoaUpdate, TipoPessoa } from '@/types/cadastro'
+import { CpfCnpjInput } from './CpfCnpjInput'
+import { CepInput } from './CepInput'
+import type { CepResponse } from '@/services/cepService'
 
 interface PessoaFormDialogProps {
   open: boolean
@@ -35,6 +38,7 @@ export function PessoaFormDialog({ open, onClose, onSubmit, pessoa }: PessoaForm
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<PessoaCreate>({
     defaultValues: {
@@ -113,6 +117,14 @@ export function PessoaFormDialog({ open, onClose, onSubmit, pessoa }: PessoaForm
     }
   }, [pessoa, reset, open])
 
+  // Handler para preenchimento automático do endereço
+  const handleEnderecoBuscado = (endereco: CepResponse) => {
+    setValue('endereco.logradouro', endereco.logradouro)
+    setValue('endereco.bairro', endereco.bairro)
+    setValue('endereco.cidade', endereco.cidade)
+    setValue('endereco.estado', endereco.estado)
+  }
+
   const handleFormSubmit = async (data: PessoaCreate) => {
     setLoading(true)
     try {
@@ -185,14 +197,14 @@ export function PessoaFormDialog({ open, onClose, onSubmit, pessoa }: PessoaForm
                       name="cpf"
                       control={control}
                       rules={{ required: 'CPF é obrigatório' }}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
+                      render={({ field: { value, onChange } }) => (
+                        <CpfCnpjInput
+                          value={value}
+                          onChange={onChange}
                           label="CPF"
                           error={!!errors.cpf}
                           helperText={errors.cpf?.message}
-                          placeholder="000.000.000-00"
+                          fullWidth
                         />
                       )}
                     />
@@ -220,14 +232,14 @@ export function PessoaFormDialog({ open, onClose, onSubmit, pessoa }: PessoaForm
                     name="cnpj"
                     control={control}
                     rules={{ required: 'CNPJ é obrigatório' }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
+                    render={({ field: { value, onChange } }) => (
+                      <CpfCnpjInput
+                        value={value}
+                        onChange={onChange}
                         label="CNPJ"
                         error={!!errors.cnpj}
                         helperText={errors.cnpj?.message}
-                        placeholder="00.000.000/0000-00"
+                        fullWidth
                       />
                     )}
                   />
@@ -268,7 +280,16 @@ export function PessoaFormDialog({ open, onClose, onSubmit, pessoa }: PessoaForm
                 <Controller
                   name="endereco.cep"
                   control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="CEP" placeholder="00000-000" />}
+                  render={({ field: { value, onChange } }) => (
+                    <CepInput
+                      value={value}
+                      onChange={onChange}
+                      onEnderecoBuscado={handleEnderecoBuscado}
+                      label="CEP"
+                      fullWidth
+                      buscarAutomatico
+                    />
+                  )}
                 />
               </Grid>
 

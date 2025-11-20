@@ -109,7 +109,7 @@ services:
   frontend:
    build:
      context: ./frontend
-     dockerfile: Dockerfile
+     dockerfile: Dockerfile.dev
    container_name: tributec_frontend
    ports:
      - "3000:3000"
@@ -117,7 +117,7 @@ services:
      - ./frontend:/app
      - /app/node_modules
    environment:
-     - REACT_APP_API_URL=http://localhost:8000
+     - VITE_API_URL=http://localhost:8000
    depends_on:
      - backend
    networks:

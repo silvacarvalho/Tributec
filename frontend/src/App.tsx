@@ -16,9 +16,12 @@ import { HistoricoLoginsPage } from './pages/auth/HistoricoLoginsPage'
 // Other Pages
 import { Dashboard } from './pages/Dashboard'
 import { PessoasListPage } from './pages/cadastro/PessoasListPage'
+import { PessoaDetalhesPage } from './pages/cadastro/PessoaDetalhesPage'
 import { ImoveisListPage } from './pages/cadastro/ImoveisListPage'
+import { ImovelDetalhesPage } from './pages/cadastro/ImovelDetalhesPage'
 import { LogradourosListPage } from './pages/cadastro/LogradourosListPage'
 import { EstabelecimentosListPage } from './pages/cadastro/EstabelecimentosListPage'
+import { EstabelecimentoDetalhesPage } from './pages/cadastro/EstabelecimentoDetalhesPage'
 import { CalculoIPTUPage } from './pages/tributario/CalculoIPTUPage'
 import { IPTULancamentosPage } from './pages/tributario/IPTULancamentosPage'
 import { ITBIPage } from './pages/tributario/ITBIPage'
@@ -39,13 +42,21 @@ import { MeusEstabelecimentosPage } from './pages/portal/MeusEstabelecimentosPag
 import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
 import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
 import { AutosInfracaoPage } from './pages/fiscal/AutosInfracaoPage'
+import { DetalhesAutoPage } from './pages/fiscal/DetalhesAutoPage'
+import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'        
 import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
 import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
 import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
+
+        
 import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'
 import { ImportacaoDadosPage } from './pages/fiscal/ImportacaoDadosPage'
 import { NotificacoesFiscaisPage } from './pages/fiscal/NotificacoesFiscaisPage'
 import { ProcessosFiscaisPage } from './pages/fiscal/ProcessosFiscaisPage'
+
+        
+
+  
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 import { DashboardAdminPage } from './pages/admin/DashboardAdminPage'
 import { UsuariosPage } from './pages/admin/UsuariosPage'
@@ -87,9 +98,12 @@ function App() {
 
           {/* Cadastros */}
           <Route path="/cadastro/pessoas" element={<PessoasListPage />} />
+          <Route path="/cadastro/pessoas/:id" element={<PessoaDetalhesPage />} />
           <Route path="/cadastro/imoveis" element={<ImoveisListPage />} />
+          <Route path="/cadastro/imoveis/:id" element={<ImovelDetalhesPage />} />
           <Route path="/cadastro/logradouros" element={<LogradourosListPage />} />
           <Route path="/cadastro/estabelecimentos" element={<EstabelecimentosListPage />} />
+          <Route path="/cadastro/estabelecimentos/:id" element={<EstabelecimentoDetalhesPage />} />
 
           {/* Tributário */}
           <Route path="/tributario/iptu/calcular" element={<CalculoIPTUPage />} />
@@ -105,6 +119,9 @@ function App() {
           <Route path="/arrecadacao/relatorios" element={<RelatoriosArrecadacaoPage />} />
 
           {/* Fiscal */}
+          <Route path="/fiscal/autos-infracao" element={<AutosInfracaoPage />} />
+          <Route path="/fiscal/autos-infracao/:autoId" element={<DetalhesAutoPage />} />
+          <Route path="/fiscal/catalogo-infracoes" element={<CatalogoInfracoesPage />} />
           <Route path="/fiscal/dashboard" element={<DashboardFiscalPage />} />
           <Route path="/fiscal/autos" element={<AutosInfracaoPage />} />
           <Route path="/fiscal/autos/:id" element={<AutoDetalhesPage />} />
