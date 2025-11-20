@@ -20,10 +20,7 @@ import {
   IconButton,
   Collapse,
   InputAdornment,
-  Tooltip,
-  Tooltip,
-  TablePagination,
-  Collapse
+  Tooltip
 } from '@mui/material'
 import {
   Add,
@@ -35,9 +32,6 @@ import {
   TableChart,
   Visibility,
   Assessment,
-  FileDownload,
-  ExpandMore,
-  ExpandLess,
   Dashboard as DashboardIcon
 } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
@@ -84,10 +78,6 @@ export function AutosInfracaoPage() {
     numero_auto: '',
     autuado_nome: ''
   })
-  const [dialogAberto, setDialogAberto] = useState(false)
-  const [filtrosExpanded, setFiltrosExpanded] = useState(false)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
 
   const { data: autos, isLoading } = useQuery({
     queryKey: ['autos-infracao', filtros, page, rowsPerPage, order, orderBy, busca],
@@ -123,7 +113,6 @@ export function AutosInfracaoPage() {
     return new Date(data).toLocaleDateString('pt-BR')
   }
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
   const handleVerDetalhes = (autoId: string) => {
     navigate(`/fiscal/autos/${autoId}`)
   }
@@ -153,6 +142,8 @@ export function AutosInfracaoPage() {
       codigo_infracao: '',
       valor_min: '',
       valor_max: '',
+      numero_auto: '',
+      autuado_nome: ''
     })
     setPage(0)
   }
@@ -173,23 +164,6 @@ export function AutosInfracaoPage() {
 
     const csv = [headers, ...rows].map((row) => row.join(';')).join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-  const handleExportarExcel = () => {
-    // Simular exportação
-    const csvContent = [
-      ['Número', 'Data', 'Autuado', 'Infração', 'Valor', 'Status'].join(';'),
-      ...(autos?.items || []).map((auto: any) =>
-        [
-          auto.numero_auto,
-          formatarData(auto.data_lavratura),
-          auto.autuado_nome,
-          auto.codigo_infracao,
-          auto.valor_total,
-          auto.status
-        ].join(';')
-      )
-    ].join('\n')
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `autos-infracao-${new Date().toISOString().split('T')[0]}.csv`
@@ -224,7 +198,6 @@ export function AutosInfracaoPage() {
     link.download = `autos-infracao-${new Date().toISOString().split('T')[0]}.xls`
     link.click()
   }
-  const autosPaginados = autos?.items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) || []
 
   return (
     <Box>
@@ -250,14 +223,6 @@ export function AutosInfracaoPage() {
           </Button>
           <Button variant="outlined" startIcon={<Assessment />} onClick={() => navigate('/fiscal/catalogo')}>
             Catálogo
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<FileDownload />}
-            onClick={handleExportarExcel}
-            disabled={!autos?.items || autos.items.length === 0}
-          >
-            Exportar
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={() => setDialogAberto(true)}>
             Lavrar Auto
@@ -310,17 +275,6 @@ export function AutosInfracaoPage() {
 
       {/* Busca e Filtros */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Filtros</Typography>
-          <Button
-            size="small"
-            onClick={() => setFiltrosExpanded(!filtrosExpanded)}
-            endIcon={filtrosExpanded ? <ExpandLess /> : <ExpandMore />}
-          >
-            {filtrosExpanded ? 'Ocultar' : 'Mostrar'} Avançado
-          </Button>
-        </Box>
-
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={8}>
             <TextField
@@ -442,8 +396,8 @@ export function AutosInfracaoPage() {
                 InputProps={{
                   startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                 }}
-        <Collapse in={filtrosExpanded}>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+              />
+            </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -519,8 +473,6 @@ export function AutosInfracaoPage() {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell>Valor Total</TableCell>
-              <TableCell>Status</TableCell>
               <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
@@ -545,8 +497,6 @@ export function AutosInfracaoPage() {
                   sx={{ cursor: 'pointer' }}
                   onClick={() => navigate(`/fiscal/autos-infracao/${auto.id}`)}
                 >
-              autosPaginados.map((auto: any) => (
-                <TableRow key={auto.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight="medium">
                       {auto.numero_auto}
@@ -578,7 +528,10 @@ export function AutosInfracaoPage() {
                       <IconButton
                         size="small"
                         color="primary"
-                        onClick={() => handleVerDetalhes(auto.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleVerDetalhes(auto.id)
+                        }}
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
@@ -594,10 +547,6 @@ export function AutosInfracaoPage() {
           rowsPerPageOptions={[5, 10, 25, 50, 100]}
           component="div"
           count={autos?.total || 0}
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          component="div"
-          count={autos?.items.length || 0}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
