@@ -11,15 +11,17 @@ import {
   CardContent,
   CardHeader,
   Divider,
-  Alert,
+  Alert
+} from '@mui/material'
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
   TimelineConnector,
   TimelineContent,
   TimelineDot,
-  TimelineOppositeContent,
-} from '@mui/material'
+  TimelineOppositeContent
+} from '@mui/lab'
 import {
   ArrowBack,
   Edit,
