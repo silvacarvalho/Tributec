@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from sqlalchemy.orm import Session
-from app.db.session import SessionLocal
+from app.db.base import SessionLocal
 from app.models.admin import ParametroSistema
 from app.models.fiscal import CatalogoInfracao
 from app.db.seeds.parametros_seed import TODOS_PARAMETROS
