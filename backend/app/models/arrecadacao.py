@@ -62,9 +62,60 @@ class TipoCanalPagamento(str, enum.Enum):
     INTERNET_BANKING = "INTERNET_BANKING"
 
 
+class TipoPagamento(str, enum.Enum):
+    """Tipo de pagamento"""
+    DINHEIRO = "DINHEIRO"
+    PIX = "PIX"
+    BOLETO = "BOLETO"
+    CARTAO_CREDITO = "CARTAO_CREDITO"
+    CARTAO_DEBITO = "CARTAO_DEBITO"
+    TRANSFERENCIA = "TRANSFERENCIA"
+    CHEQUE = "CHEQUE"
+
+
 # =====================================================
 # MODELOS
 # =====================================================
+
+class Debito(ModeloBase):
+    """
+    Modelo para débitos tributários
+    Representa um débito (IPTU, ISSQN, Taxa, etc) que pode ser pago
+    """
+    __tablename__ = "debitos"
+    __table_args__ = (
+        Index("idx_debitos_contribuinte", "contribuinte_id"),
+        Index("idx_debitos_status", "status"),
+        {"schema": "arrecadacao"}
+    )
+
+    # Chaves
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contribuinte_id = Column(UUID(as_uuid=True), ForeignKey("cadastro.pessoas.id"), nullable=False)
+
+    # Identificação
+    numero_debito = Column(String(30), unique=True, nullable=False)
+    tipo_tributo = Column(String(20), nullable=False, comment="IPTU, ISSQN, TAXA, etc")
+    ano_exercicio = Column(Integer, nullable=False)
+
+    # Valores
+    valor_principal = Column(Numeric(15, 2), nullable=False)
+    valor_juros = Column(Numeric(15, 2), default=0)
+    valor_multa = Column(Numeric(15, 2), default=0)
+    valor_correcao = Column(Numeric(15, 2), default=0)
+    valor_total = Column(Numeric(15, 2), nullable=False)
+    valor_pago = Column(Numeric(15, 2), default=0)
+
+    # Datas
+    data_vencimento = Column(Date, nullable=False)
+    data_pagamento = Column(Date)
+
+    # Status
+    status = Column(String(20), default="PENDENTE", comment="PENDENTE, PAGO, VENCIDO, PARCELADO, CANCELADO")
+
+    # Relacionamentos
+    contribuinte = relationship("Pessoa")
+
 
 class DAM(ModeloBase):
     """
@@ -698,3 +749,81 @@ class Restituicao(ModeloBase):
         Index("idx_restituicoes_restituido", "restituido"),
         {"schema": "arrecadacao"}
     )
+
+# ==================================================
+# PIX E BOLETO
+# ==================================================
+
+class PIXTransacao(ModeloBase):
+    """
+    Modelo para transações PIX
+    Armazena dados de QR Code e transações PIX
+    """
+    __tablename__ = "pix_transacoes"
+    __table_args__ = (
+        Index("idx_pix_txid", "txid"),
+        Index("idx_pix_pagamento", "pagamento_id"),
+        {"schema": "arrecadacao"}
+    )
+
+    # Chaves
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    pagamento_id = Column(UUID(as_uuid=True), ForeignKey("arrecadacao.pagamentos.id"))
+
+    # Identificação PIX
+    txid = Column(String(32), unique=True, nullable=False, comment="ID único da transação PIX")
+    chave_pix = Column(String(100), nullable=False, comment="Chave PIX utilizada")
+    
+    # QR Code
+    qr_code_texto = Column(Text, comment="Texto do QR Code (BRCode)")
+    qr_code_imagem = Column(Text, comment="QR Code em base64")
+
+    # Valores
+    valor = Column(Numeric(15, 2), nullable=False)
+    
+    # Datas
+    data_expiracao = Column(DateTime, comment="Data de expiração do QR Code")
+    data_pagamento = Column(DateTime, comment="Data de confirmação do pagamento")
+    
+    # Status
+    status = Column(String(20), default="ATIVO", comment="ATIVO, CONCLUIDO, EXPIRADO, CANCELADO")
+
+    # Relacionamentos
+    pagamento = relationship("Pagamento", foreign_keys=[pagamento_id])
+
+
+class BoletoRegistro(ModeloBase):
+    """
+    Modelo para registro de boletos bancários
+    """
+    __tablename__ = "boletos"
+    __table_args__ = (
+        Index("idx_boletos_nosso_numero", "nosso_numero"),
+        Index("idx_boletos_pagamento", "pagamento_id"),
+        {"schema": "arrecadacao"}
+    )
+
+    # Chaves
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    pagamento_id = Column(UUID(as_uuid=True), ForeignKey("arrecadacao.pagamentos.id"))
+
+    # Identificação do boleto
+    nosso_numero = Column(String(20), unique=True, nullable=False, comment="Nosso número do boleto")
+    codigo_barras = Column(String(48), comment="Código de barras")
+    linha_digitavel = Column(String(54), comment="Linha digitável")
+    
+    # Valores
+    valor = Column(Numeric(15, 2), nullable=False)
+    juros_dia = Column(Numeric(15, 2), default=0, comment="Juros por dia de atraso")
+    multa_apos_vencimento = Column(Numeric(5, 2), default=0, comment="Multa após vencimento (%)")
+    
+    # Datas
+    data_vencimento = Column(Date, nullable=False)
+    data_pagamento = Column(Date, comment="Data de pagamento do boleto")
+    data_baixa = Column(Date, comment="Data de baixa do boleto")
+    
+    # Status
+    status = Column(String(20), default="REGISTRADO", comment="REGISTRADO, PAGO, BAIXADO, CANCELADO")
+    
+    # Relacionamentos
+    pagamento = relationship("Pagamento", foreign_keys=[pagamento_id])

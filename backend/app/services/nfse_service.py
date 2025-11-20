@@ -9,7 +9,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.models.nfse import NotaFiscal, NotaFiscalItem, StatusNotaFiscal, TipoTributacao
+from app.models.nfse import NFSe, StatusNFSe
+# TODO: NFSeItem e TipoTributacao não estão implementados nos modelos
 from app.models.cadastro import Estabelecimento, Pessoa
 from app.services.parametro_service import ParametroService
 
@@ -27,7 +28,7 @@ class NFSeService:
         tomador_id: UUID,
         itens: List[Dict[str, Any]],
         dados_adicionais: Optional[Dict[str, Any]] = None
-    ) -> NotaFiscal:
+    ) -> NFSe:
         """
         Emite uma Nota Fiscal de Serviços Eletrônica
 
@@ -38,7 +39,7 @@ class NFSeService:
             dados_adicionais: Dados adicionais (discriminação, observações)
 
         Returns:
-            NotaFiscal emitida
+            NFSe emitida
         """
         # Validar prestador
         prestador = self.db.query(Estabelecimento).filter(
@@ -125,14 +126,14 @@ class NFSeService:
 
         # Gerar número da nota
         ano_atual = datetime.now().year
-        ultimo_numero = self.db.query(NotaFiscal).filter(
-            NotaFiscal.prestador_id == prestador_id,
-            NotaFiscal.numero.like(f"{ano_atual}%")
+        ultimo_numero = self.db.query(NFSe).filter(
+            NFSe.prestador_id == prestador_id,
+            NFSe.numero.like(f"{ano_atual}%")
         ).count()
         numero_nota = f"{ano_atual}{(ultimo_numero + 1):08d}"
 
         # Criar nota fiscal
-        nota = NotaFiscal(
+        nota = NFSe(
             prestador_id=prestador_id,
             tomador_id=tomador_id,
             numero=numero_nota,
@@ -142,7 +143,7 @@ class NFSeService:
             regime_especial_tributacao=dados_adicionais.get('regime_especial_tributacao'),
             optante_simples_nacional=prestador.optante_simples,
             incentivador_cultural=False,
-            status=StatusNotaFiscal.EMITIDA,
+            status=StatusNFSe.EMITIDA,
             # Valores
             valor_servicos=valor_servicos,
             valor_deducoes=valor_deducoes,
@@ -166,7 +167,7 @@ class NFSeService:
 
         # Criar itens
         for idx, item_data in enumerate(itens, 1):
-            item = NotaFiscalItem(
+            item = NFSeItem(
                 nota_fiscal_id=nota.id,
                 item_lista_servico=item_data.get('item_lista_servico', '01.01'),
                 codigo_cnae=item_data.get('codigo_cnae', prestador.cnae_principal),
@@ -189,7 +190,7 @@ class NFSeService:
         nota_id: UUID,
         codigo_cancelamento: str,
         motivo: str
-    ) -> NotaFiscal:
+    ) -> NFSe:
         """
         Cancela uma NFS-e emitida
 
@@ -199,9 +200,9 @@ class NFSeService:
             motivo: Descrição do motivo do cancelamento
 
         Returns:
-            NotaFiscal cancelada
+            NFSe cancelada
         """
-        nota = self.db.query(NotaFiscal).filter(NotaFiscal.id == nota_id).first()
+        nota = self.db.query(NFSe).filter(NFSe.id == nota_id).first()
 
         if not nota:
             raise HTTPException(
@@ -209,7 +210,7 @@ class NFSeService:
                 detail="Nota fiscal não encontrada"
             )
 
-        if nota.status == StatusNotaFiscal.CANCELADA:
+        if nota.status == StatusNFSe.CANCELADA:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Nota fiscal já está cancelada"
@@ -232,7 +233,7 @@ class NFSeService:
             )
 
         # Cancelar nota
-        nota.status = StatusNotaFiscal.CANCELADA
+        nota.status = StatusNFSe.CANCELADA
         nota.data_cancelamento = datetime.now()
         nota.motivo_cancelamento = f"{codigo_cancelamento} - {motivo}"
 
@@ -250,7 +251,7 @@ class NFSeService:
         data_fim: Optional[datetime] = None,
         skip: int = 0,
         limit: int = 20,
-    ) -> tuple[List[NotaFiscal], int]:
+    ) -> tuple[List[NFSe], int]:
         """
         Consulta notas fiscais com filtros
 
@@ -266,25 +267,25 @@ class NFSeService:
         Returns:
             Tupla (lista de notas, total)
         """
-        query = self.db.query(NotaFiscal)
+        query = self.db.query(NFSe)
 
         if numero:
-            query = query.filter(NotaFiscal.numero == numero)
+            query = query.filter(NFSe.numero == numero)
 
         if prestador_id:
-            query = query.filter(NotaFiscal.prestador_id == prestador_id)
+            query = query.filter(NFSe.prestador_id == prestador_id)
 
         if tomador_id:
-            query = query.filter(NotaFiscal.tomador_id == tomador_id)
+            query = query.filter(NFSe.tomador_id == tomador_id)
 
         if data_inicio:
-            query = query.filter(NotaFiscal.data_emissao >= data_inicio)
+            query = query.filter(NFSe.data_emissao >= data_inicio)
 
         if data_fim:
-            query = query.filter(NotaFiscal.data_emissao <= data_fim)
+            query = query.filter(NFSe.data_emissao <= data_fim)
 
         total = query.count()
-        notas = query.order_by(NotaFiscal.data_emissao.desc()).offset(skip).limit(limit).all()
+        notas = query.order_by(NFSe.data_emissao.desc()).offset(skip).limit(limit).all()
 
         return notas, total
 
@@ -312,11 +313,11 @@ class NFSeService:
             data_fim = datetime(ano, mes + 1, 1)
 
         # Buscar notas do período
-        notas = self.db.query(NotaFiscal).filter(
-            NotaFiscal.prestador_id == prestador_id,
-            NotaFiscal.data_emissao >= data_inicio,
-            NotaFiscal.data_emissao < data_fim,
-            NotaFiscal.status == StatusNotaFiscal.EMITIDA
+        notas = self.db.query(NFSe).filter(
+            NFSe.prestador_id == prestador_id,
+            NFSe.data_emissao >= data_inicio,
+            NFSe.data_emissao < data_fim,
+            NFSe.status == StatusNFSe.EMITIDA
         ).all()
 
         # Totalizar
