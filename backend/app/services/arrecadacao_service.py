@@ -27,6 +27,13 @@ from app.schemas.arrecadacao import (
 )
 from app.utils.logging import logger
 
+try:
+    from app.utils.pdf_generator import BoletoPDFGenerator
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    logger.warning("PDF generator not available. Install reportlab: pip install reportlab")
+
 
 class ArrecadacaoService:
     """Service para gerenciamento de arrecadação e pagamentos"""
@@ -393,8 +400,28 @@ class ArrecadacaoService:
         self.db.commit()
         self.db.refresh(boleto)
 
-        # Gerar PDF (em produção, usar biblioteca apropriada)
-        # pdf_base64 = self._gerar_pdf_boleto(boleto)
+        # Gerar PDF do boleto
+        pdf_base64 = None
+        if PDF_AVAILABLE:
+            try:
+                pdf_generator = BoletoPDFGenerator()
+                pdf_base64 = pdf_generator.gerar_boleto(
+                    nosso_numero=nosso_numero,
+                    codigo_barras=codigo_barras,
+                    linha_digitavel=linha_digitavel,
+                    valor=boleto_data.valor,
+                    data_vencimento=boleto_data.data_vencimento,
+                    sacado_nome=pagamento.contribuinte.nome if pagamento.contribuinte else "",
+                    sacado_cpf_cnpj=pagamento.contribuinte.cpf_cnpj if pagamento.contribuinte else "",
+                    sacado_endereco="",  # Buscar do cadastro
+                    instrucoes=boleto_data.instrucoes,
+                    numero_documento=str(pagamento.id),
+                    juros_mora=boleto_data.juros_dia,
+                    multa=boleto_data.multa_apos_vencimento,
+                )
+                logger.info(f"PDF gerado para boleto {nosso_numero}")
+            except Exception as e:
+                logger.error(f"Erro ao gerar PDF do boleto: {str(e)}")
 
         return BoletoResponse(
             id=boleto.id,
@@ -406,7 +433,7 @@ class ArrecadacaoService:
             valor=boleto.valor,
             status="REGISTRADO",
             data_registro=boleto.created_at,
-            pdf_base64=None  # Implementar geração de PDF
+            pdf_base64=pdf_base64
         )
 
     def _gerar_nosso_numero(self) -> str:
