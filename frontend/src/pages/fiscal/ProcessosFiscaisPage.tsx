@@ -29,15 +29,17 @@ import {
   InputAdornment,
   Stepper,
   Step,
-  StepLabel,
+  StepLabel
+} from '@mui/material'
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
   TimelineConnector,
   TimelineContent,
   TimelineDot,
-  TimelineOppositeContent,
-} from '@mui/material'
+  TimelineOppositeContent
+} from '@mui/lab'
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
