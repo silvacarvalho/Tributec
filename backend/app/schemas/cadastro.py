@@ -116,7 +116,7 @@ class PessoaComEnderecos(PessoaResponse):
 # IMÓVEL
 # =====================================================
 
-class ImovelTerreno Base(SchemaBase):
+class ImovelTerrenoBase(SchemaBase):
     """Schema base para terreno"""
     area_terreno: Decimal = Field(..., ge=0, description="Área do terreno em m²")
     testada_principal: Optional[Decimal] = Field(None, ge=0)
