@@ -43,9 +43,8 @@ import { MeusParcelamentosPage } from './pages/portal/MeusParcelamentosPage'
 import { MeuCadastroPage } from './pages/portal/MeuCadastroPage'
 import { AutosInfracaoPage } from './pages/fiscal/AutosInfracaoPage'
 import { DetalhesAutoPage } from './pages/fiscal/DetalhesAutoPage'
-import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'        
-import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
 import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
+import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
 import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
 
         
