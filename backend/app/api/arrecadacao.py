@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
 
-from app.database import get_db
+from app.db.base import get_db
 from app.services.arrecadacao_service import ArrecadacaoService
 from app.schemas.arrecadacao import (
     DashboardArrecadacaoResponse,
