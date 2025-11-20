@@ -767,7 +767,7 @@ class PIXTransacao(ModeloBase):
     )
 
     # Chaves
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid)
     pagamento_id = Column(UUID(as_uuid=True), ForeignKey("arrecadacao.pagamentos.id"))
 
     # Identificação PIX
@@ -804,7 +804,7 @@ class BoletoRegistro(ModeloBase):
     )
 
     # Chaves
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid)
     pagamento_id = Column(UUID(as_uuid=True), ForeignKey("arrecadacao.pagamentos.id"))
 
     # Identificação do boleto
