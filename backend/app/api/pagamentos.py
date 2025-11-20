@@ -14,7 +14,7 @@ from app.services.pagamento_service import PagamentoService
 from app.models.arrecadacao import StatusPagamento, TipoPagamento
 
 
-router = APIRouter(prefix="/pagamentos", tags=["Pagamentos"])
+router = APIRouter(prefix="/pagamentos", tags=["Arrecadação"])
 
 
 # Schemas

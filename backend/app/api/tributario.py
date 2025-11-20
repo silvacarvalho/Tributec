@@ -45,14 +45,14 @@ from app.schemas.tributario import (
 )
 from app.schemas.base import ResponseBase
 
-router = APIRouter(prefix="/tributario", tags=["Tributário"])
+router = APIRouter(prefix="/tributario")
 
 
 # =====================================================
 # IPTU - IMPOSTO PREDIAL E TERRITORIAL URBANO
 # =====================================================
 
-@router.post("/iptu/calcular", response_model=IPTUCalculoResponse)
+@router.post("/iptu/calcular", response_model=IPTUCalculoResponse, tags=["Tributário - IPTU"])
 async def calcular_iptu(
     calculo: IPTUCalculoRequest,
     db: Session = Depends(get_db),
@@ -106,7 +106,7 @@ async def calcular_iptu(
     )
 
 
-@router.post("/iptu/lancar", response_model=IPTULancamentoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/iptu/lancar", response_model=IPTULancamentoResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - IPTU"])
 async def lancar_iptu(
     lancamento: IPTULancamentoCreate,
     db: Session = Depends(get_db),
@@ -129,7 +129,7 @@ async def lancar_iptu(
     return lancamento_criado
 
 
-@router.post("/iptu/lançamento-em-lote/{ano_exercicio}", response_model=ResponseBase)
+@router.post("/iptu/lançamento-em-lote/{ano_exercicio}", response_model=ResponseBase, tags=["Tributário - IPTU"])
 async def lancar_iptu_em_lote(
     ano_exercicio: int,
     setor_fiscal_id: int = Query(default=None, description="Filtrar por setor fiscal"),
@@ -157,7 +157,7 @@ async def lancar_iptu_em_lote(
     )
 
 
-@router.get("/iptu/lancamentos", response_model=List[IPTULancamentoResponse])
+@router.get("/iptu/lancamentos", response_model=List[IPTULancamentoResponse], tags=["Tributário - IPTU"])
 async def listar_lancamentos_iptu(
     ano_exercicio: int = Query(..., description="Ano do exercício"),
     skip: int = Query(default=0, ge=0),
@@ -182,7 +182,7 @@ async def listar_lancamentos_iptu(
     return lancamentos
 
 
-@router.get("/iptu/lancamentos/{lancamento_id}", response_model=IPTULancamentoResponse)
+@router.get("/iptu/lancamentos/{lancamento_id}", response_model=IPTULancamentoResponse, tags=["Tributário - IPTU"])
 async def obter_lancamento_iptu(
     lancamento_id: UUID,
     db: Session = Depends(get_db),
@@ -199,7 +199,7 @@ async def obter_lancamento_iptu(
     return lancamento
 
 
-@router.get("/iptu/lancamentos/{lancamento_id}/parcelas", response_model=List[IPTUParcelaResponse])
+@router.get("/iptu/lancamentos/{lancamento_id}/parcelas", response_model=List[IPTUParcelaResponse], tags=["Tributário - IPTU"])
 async def listar_parcelas_iptu(
     lancamento_id: UUID,
     db: Session = Depends(get_db),
@@ -216,7 +216,7 @@ async def listar_parcelas_iptu(
     return parcelas
 
 
-@router.put("/iptu/lancamentos/{lancamento_id}/corrigir", response_model=IPTULancamentoResponse)
+@router.put("/iptu/lancamentos/{lancamento_id}/corrigir", response_model=IPTULancamentoResponse, tags=["Tributário - IPTU"])
 async def corrigir_lancamento_iptu(
     lancamento_id: UUID,
     valor_iptu: Decimal = Query(..., description="Novo valor do IPTU"),
@@ -275,7 +275,7 @@ async def corrigir_lancamento_iptu(
     return lancamento
 
 
-@router.put("/iptu/lancamentos/{lancamento_id}/cancelar", response_model=IPTULancamentoResponse)
+@router.put("/iptu/lancamentos/{lancamento_id}/cancelar", response_model=IPTULancamentoResponse, tags=["Tributário - IPTU"])
 async def cancelar_lancamento_iptu(
     lancamento_id: UUID,
     motivo: str = Query(..., description="Motivo do cancelamento"),
@@ -325,7 +325,7 @@ async def cancelar_lancamento_iptu(
 # ITBI - IMPOSTO SOBRE TRANSMISSÃO DE BENS IMÓVEIS
 # =====================================================
 
-@router.post("/itbi/calcular", response_model=ITBICalculoResponse)
+@router.post("/itbi/calcular", response_model=ITBICalculoResponse, tags=["Tributário - ITBI"])
 async def calcular_itbi(
     calculo: ITBICalculoRequest,
     db: Session = Depends(get_db),
@@ -370,8 +370,8 @@ async def calcular_itbi(
     )
 
 
-@router.post("/itbi/guias", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED)
-@router.post("/itbi/emitir-guia", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/itbi/guias", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - ITBI"])
+@router.post("/itbi/emitir-guia", response_model=ITBIGuiaResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - ITBI"])
 async def emitir_guia_itbi(
     guia: ITBIGuiaCreate,
     db: Session = Depends(get_db),
@@ -454,7 +454,7 @@ async def emitir_guia_itbi(
     return nova_guia
 
 
-@router.get("/itbi/guias")
+@router.get("/itbi/guias", tags=["Tributário - ITBI"])
 async def listar_guias_itbi(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -497,7 +497,7 @@ async def listar_guias_itbi(
     return criar_resposta_paginada(dados=guias, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/itbi/guias/{guia_id}", response_model=ITBIGuiaResponse)
+@router.get("/itbi/guias/{guia_id}", response_model=ITBIGuiaResponse, tags=["Tributário - ITBI"])
 async def obter_guia_itbi(
     guia_id: UUID,
     db: Session = Depends(get_db),
@@ -519,7 +519,7 @@ async def obter_guia_itbi(
     return guia
 
 
-@router.put("/itbi/guias/{guia_id}/registrar-pagamento", response_model=ITBIGuiaResponse)
+@router.put("/itbi/guias/{guia_id}/registrar-pagamento", response_model=ITBIGuiaResponse, tags=["Tributário - ITBI"])
 async def registrar_pagamento_itbi(
     guia_id: UUID,
     valor_pago: Decimal = Query(..., description="Valor pago"),
@@ -559,7 +559,7 @@ async def registrar_pagamento_itbi(
     return guia
 
 
-@router.put("/itbi/guias/{guia_id}/cancelar", response_model=ITBIGuiaResponse)
+@router.put("/itbi/guias/{guia_id}/cancelar", response_model=ITBIGuiaResponse, tags=["Tributário - ITBI"])
 async def cancelar_guia_itbi(
     guia_id: UUID,
     motivo: str = Query(..., description="Motivo do cancelamento"),
@@ -609,7 +609,7 @@ async def cancelar_guia_itbi(
     return guia
 
 
-@router.put("/itbi/guias/{guia_id}/arbitrar", response_model=ITBIGuiaResponse)
+@router.put("/itbi/guias/{guia_id}/arbitrar", response_model=ITBIGuiaResponse, tags=["Tributário - ITBI"])
 async def arbitrar_valor_itbi(
     guia_id: UUID,
     valor_arbitrado: Decimal = Query(..., description="Valor arbitrado pela fiscalização"),
@@ -678,7 +678,7 @@ async def arbitrar_valor_itbi(
     return guia
 
 
-@router.get("/itbi/guias/{guia_id}/pdf")
+@router.get("/itbi/guias/{guia_id}/pdf", tags=["Tributário - ITBI"])
 async def gerar_pdf_itbi(
     guia_id: UUID,
     db: Session = Depends(get_db),
@@ -744,7 +744,7 @@ async def gerar_pdf_itbi(
 # ISSQN - IMPOSTO SOBRE SERVIÇOS
 # =====================================================
 
-@router.post("/issqn/calcular", response_model=ISSQNCalculoResponse)
+@router.post("/issqn/calcular", response_model=ISSQNCalculoResponse, tags=["Tributário - ISSQN"])
 async def calcular_issqn(
     calculo: ISSQNCalculoRequest,
     db: Session = Depends(get_db),
@@ -781,8 +781,8 @@ async def calcular_issqn(
     )
 
 
-@router.post("/issqn/declaracoes", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED)
-@router.post("/issqn/declarar", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/issqn/declaracoes", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - ISSQN"])
+@router.post("/issqn/declarar", response_model=ISSQNDeclaracaoResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - ISSQN"])
 async def criar_declaracao_issqn(
     declaracao: ISSQNDeclaracaoCreate,
     db: Session = Depends(get_db),
@@ -911,7 +911,7 @@ async def criar_declaracao_issqn(
     return nova_declaracao
 
 
-@router.get("/issqn/declaracoes")
+@router.get("/issqn/declaracoes", tags=["Tributário - ISSQN"])
 async def listar_declaracoes_issqn(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -960,7 +960,7 @@ async def listar_declaracoes_issqn(
     return criar_resposta_paginada(dados=declaracoes, total=total, pagina=pagina, limite=limit)
 
 
-@router.put("/issqn/declaracoes/{declaracao_id}/registrar-pagamento", response_model=ISSQNDeclaracaoResponse)
+@router.put("/issqn/declaracoes/{declaracao_id}/registrar-pagamento", response_model=ISSQNDeclaracaoResponse, tags=["Tributário - ISSQN"])
 async def registrar_pagamento_issqn(
     declaracao_id: UUID,
     valor_pago: Decimal = Query(..., description="Valor pago"),
@@ -999,7 +999,7 @@ async def registrar_pagamento_issqn(
     return declaracao
 
 
-@router.put("/issqn/declaracoes/{declaracao_id}/retificar", response_model=ISSQNDeclaracaoResponse)
+@router.put("/issqn/declaracoes/{declaracao_id}/retificar", response_model=ISSQNDeclaracaoResponse, tags=["Tributário - ISSQN"])
 async def retificar_declaracao_issqn(
     declaracao_id: UUID,
     receita_bruta_total: Decimal = Query(..., description="Nova receita bruta"),
@@ -1068,7 +1068,7 @@ async def retificar_declaracao_issqn(
     return declaracao
 
 
-@router.put("/issqn/declaracoes/{declaracao_id}/cancelar", response_model=ISSQNDeclaracaoResponse)
+@router.put("/issqn/declaracoes/{declaracao_id}/cancelar", response_model=ISSQNDeclaracaoResponse, tags=["Tributário - ISSQN"])
 async def cancelar_declaracao_issqn(
     declaracao_id: UUID,
     motivo: str = Query(..., description="Motivo do cancelamento"),
@@ -1114,7 +1114,7 @@ async def cancelar_declaracao_issqn(
     return declaracao
 
 
-@router.get("/issqn/declaracoes/{declaracao_id}/pdf")
+@router.get("/issqn/declaracoes/{declaracao_id}/pdf", tags=["Tributário - ISSQN"])
 async def gerar_pdf_issqn(
     declaracao_id: UUID,
     db: Session = Depends(get_db),
@@ -1171,7 +1171,7 @@ async def gerar_pdf_issqn(
         )
 
 
-@router.post("/issqn/retencoes", response_model=ISSQNRetencaoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/issqn/retencoes", response_model=ISSQNRetencaoResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - ISSQN"])
 async def registrar_retencao_issqn(
     retencao: ISSQNRetencaoCreate,
     db: Session = Depends(get_db),
@@ -1251,7 +1251,7 @@ async def registrar_retencao_issqn(
     return nova_retencao
 
 
-@router.get("/issqn/retencoes")
+@router.get("/issqn/retencoes", tags=["Tributário - ISSQN"])
 async def listar_retencoes_issqn(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -1308,7 +1308,7 @@ async def listar_retencoes_issqn(
     return criar_resposta_paginada(dados=retencoes, total=total, pagina=pagina, limite=limit)
 
 
-@router.put("/issqn/retencoes/{retencao_id}/recolher", response_model=ISSQNRetencaoResponse)
+@router.put("/issqn/retencoes/{retencao_id}/recolher", response_model=ISSQNRetencaoResponse, tags=["Tributário - ISSQN"])
 async def recolher_retencao_issqn(
     retencao_id: UUID,
     valor_recolhido: Decimal = Query(..., description="Valor recolhido"),
@@ -1352,7 +1352,7 @@ async def recolher_retencao_issqn(
 # RELATÓRIOS
 # =====================================================
 
-@router.get("/relatorios/arrecadacao")
+@router.get("/relatorios/arrecadacao", tags=["Relatórios"])
 async def relatorio_arrecadacao(
     tipo_tributo: str = Query(..., description="IPTU, ITBI ou ISSQN"),
     ano: int = Query(..., description="Ano de referência"),
@@ -1449,7 +1449,7 @@ async def relatorio_arrecadacao(
     return resultado
 
 
-@router.get("/relatorios/inadimplencia")
+@router.get("/relatorios/inadimplencia", tags=["Relatórios"])
 async def relatorio_inadimplencia(
     tipo_tributo: str = Query(..., description="IPTU, ITBI ou ISSQN"),
     ano: int = Query(default=None),
@@ -1695,7 +1695,7 @@ async def listar_isencoes(
     return criar_resposta_paginada(dados=isencoes, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/isencoes/{isencao_id}", response_model=IsencaoResponse)
+@router.get("/isencoes/{isencao_id}", response_model=IsencaoResponse, tags=["Tributário - Isenções"])
 async def obter_isencao(
     isencao_id: UUID,
     db: Session = Depends(get_db),
@@ -1716,7 +1716,7 @@ async def obter_isencao(
     return isencao
 
 
-@router.put("/isencoes/{isencao_id}/aprovar", response_model=IsencaoResponse)
+@router.put("/isencoes/{isencao_id}/aprovar", response_model=IsencaoResponse, tags=["Tributário - Isenções"])
 async def aprovar_isencao(
     isencao_id: UUID,
     db: Session = Depends(get_db),
@@ -1753,7 +1753,7 @@ async def aprovar_isencao(
     return isencao
 
 
-@router.put("/isencoes/{isencao_id}/cancelar", response_model=IsencaoResponse)
+@router.put("/isencoes/{isencao_id}/cancelar", response_model=IsencaoResponse, tags=["Tributário - Isenções"])
 async def cancelar_isencao(
     isencao_id: UUID,
     motivo: str = Query(..., description="Motivo do cancelamento"),
@@ -1791,7 +1791,7 @@ async def cancelar_isencao(
     return isencao
 
 
-@router.put("/isencoes/{isencao_id}", response_model=IsencaoResponse)
+@router.put("/isencoes/{isencao_id}", response_model=IsencaoResponse, tags=["Tributário - Isenções"])
 async def atualizar_isencao(
     isencao_id: UUID,
     atualizacao: IsencaoUpdate,
@@ -1835,7 +1835,7 @@ async def atualizar_isencao(
     return isencao
 
 
-@router.delete("/isencoes/{isencao_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/isencoes/{isencao_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Tributário - Isenções"])
 async def excluir_isencao(
     isencao_id: UUID,
     db: Session = Depends(get_db),
@@ -1883,7 +1883,7 @@ async def excluir_isencao(
 # PLANTA GENÉRICA DE VALORES (PGV)
 # =====================================================
 
-@router.post("/pgv", response_model=PlantaGenericaValorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/pgv", response_model=PlantaGenericaValorResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - PGV/TPC"])
 async def criar_pgv(
     pgv: PlantaGenericaValorCreate,
     db: Session = Depends(get_db),
@@ -1938,7 +1938,7 @@ async def criar_pgv(
     return nova_pgv
 
 
-@router.get("/pgv")
+@router.get("/pgv", tags=["Tributário - PGV/TPC"])
 async def listar_pgv(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
@@ -1987,7 +1987,7 @@ async def listar_pgv(
     return criar_resposta_paginada(dados=pgvs, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse)
+@router.get("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse, tags=["Tributário - PGV/TPC"])
 async def obter_pgv(
     pgv_id: int,
     db: Session = Depends(get_db),
@@ -2008,7 +2008,7 @@ async def obter_pgv(
     return pgv
 
 
-@router.put("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse)
+@router.put("/pgv/{pgv_id}", response_model=PlantaGenericaValorResponse, tags=["Tributário - PGV/TPC"])
 async def atualizar_pgv(
     pgv_id: int,
     atualizacao: PlantaGenericaValorCreate,
@@ -2042,7 +2042,7 @@ async def atualizar_pgv(
     return pgv
 
 
-@router.delete("/pgv/{pgv_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/pgv/{pgv_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Tributário - PGV/TPC"])
 async def excluir_pgv(
     pgv_id: int,
     db: Session = Depends(get_db),
@@ -2073,7 +2073,7 @@ async def excluir_pgv(
 # TABELA DE PREÇO DE CONSTRUÇÃO (TPC)
 # =====================================================
 
-@router.post("/tpc", response_model=TabelaPrecoConstrucaoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tpc", response_model=TabelaPrecoConstrucaoResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - PGV/TPC"])
 async def criar_tpc(
     tpc: TabelaPrecoConstrucaoCreate,
     db: Session = Depends(get_db),
@@ -2132,7 +2132,7 @@ async def criar_tpc(
     return nova_tpc
 
 
-@router.get("/tpc")
+@router.get("/tpc", tags=["Tributário - PGV/TPC"])
 async def listar_tpc(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
@@ -2186,7 +2186,7 @@ async def listar_tpc(
     return criar_resposta_paginada(dados=tpcs, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse)
+@router.get("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse, tags=["Tributário - PGV/TPC"])
 async def obter_tpc(
     tpc_id: int,
     db: Session = Depends(get_db),
@@ -2207,7 +2207,7 @@ async def obter_tpc(
     return tpc
 
 
-@router.put("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse)
+@router.put("/tpc/{tpc_id}", response_model=TabelaPrecoConstrucaoResponse, tags=["Tributário - PGV/TPC"])
 async def atualizar_tpc(
     tpc_id: int,
     atualizacao: TabelaPrecoConstrucaoCreate,
@@ -2242,7 +2242,7 @@ async def atualizar_tpc(
     return tpc
 
 
-@router.delete("/tpc/{tpc_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/tpc/{tpc_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Tributário - PGV/TPC"])
 async def excluir_tpc(
     tpc_id: int,
     db: Session = Depends(get_db),
@@ -2273,7 +2273,7 @@ async def excluir_tpc(
 # ALÍQUOTAS
 # =====================================================
 
-@router.post("/aliquotas", response_model=AliquotaResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/aliquotas", response_model=AliquotaResponse, status_code=status.HTTP_201_CREATED, tags=["Tributário - Alíquotas"])
 async def criar_aliquota(
     aliquota: AliquotaCreate,
     db: Session = Depends(get_db),
@@ -2347,7 +2347,7 @@ async def criar_aliquota(
     return nova_aliquota
 
 
-@router.get("/aliquotas")
+@router.get("/aliquotas", tags=["Tributário - Alíquotas"])
 async def listar_aliquotas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -2401,7 +2401,7 @@ async def listar_aliquotas(
     return criar_resposta_paginada(dados=aliquotas, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/aliquotas/{aliquota_id}", response_model=AliquotaResponse)
+@router.get("/aliquotas/{aliquota_id}", response_model=AliquotaResponse, tags=["Tributário - Alíquotas"])
 async def obter_aliquota(
     aliquota_id: int,
     db: Session = Depends(get_db),
@@ -2422,7 +2422,7 @@ async def obter_aliquota(
     return aliquota
 
 
-@router.put("/aliquotas/{aliquota_id}", response_model=AliquotaResponse)
+@router.put("/aliquotas/{aliquota_id}", response_model=AliquotaResponse, tags=["Tributário - Alíquotas"])
 async def atualizar_aliquota(
     aliquota_id: int,
     atualizacao: AliquotaCreate,
@@ -2469,7 +2469,7 @@ async def atualizar_aliquota(
     return aliquota
 
 
-@router.delete("/aliquotas/{aliquota_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/aliquotas/{aliquota_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Tributário - Alíquotas"])
 async def excluir_aliquota(
     aliquota_id: int,
     db: Session = Depends(get_db),
@@ -2499,7 +2499,7 @@ async def excluir_aliquota(
 # PARCELAMENTOS
 # =====================================================
 
-@router.post("/parcelamentos", status_code=status.HTTP_201_CREATED)
+@router.post("/parcelamentos", status_code=status.HTTP_201_CREATED, tags=["Arrecadação - Parcelamentos"])
 async def criar_parcelamento(
     contribuinte_id: UUID = Query(..., description="ID do contribuinte"),
     debitos_ids: List[UUID] = Query(..., description="Lista de IDs dos débitos a parcelar"),
@@ -2658,7 +2658,7 @@ async def criar_parcelamento(
     }
 
 
-@router.get("/parcelamentos")
+@router.get("/parcelamentos", tags=["Arrecadação - Parcelamentos"])
 async def listar_parcelamentos(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -2689,7 +2689,7 @@ async def listar_parcelamentos(
     return criar_resposta_paginada(dados=parcelamentos, total=total, pagina=pagina, limite=limit)
 
 
-@router.put("/parcelamentos/{parcelamento_id}/parcela/{numero_parcela}/pagar")
+@router.put("/parcelamentos/{parcelamento_id}/parcela/{numero_parcela}/pagar", tags=["Arrecadação - Parcelamentos"])
 async def pagar_parcela_parcelamento(
     parcelamento_id: UUID,
     numero_parcela: int,
@@ -2761,7 +2761,7 @@ async def pagar_parcela_parcelamento(
     }
 
 
-@router.put("/parcelamentos/{parcelamento_id}/cancelar")
+@router.put("/parcelamentos/{parcelamento_id}/cancelar", tags=["Arrecadação - Parcelamentos"])
 async def cancelar_parcelamento(
     parcelamento_id: UUID,
     motivo: str = Query(..., description="Motivo do cancelamento"),

@@ -17,8 +17,7 @@ import {
   CardContent,
   Divider,
   InputAdornment,
-  IconButton,
-  CircularProgress
+  IconButton
 } from '@mui/material'
 import { Search, Warning } from '@mui/icons-material'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -404,6 +403,9 @@ export function LavrarAutoDialog({ open, onClose }: LavrarAutoDialogProps) {
                 InputLabelProps={{ shrink: true }}
                 required
                 disabled={!infracaoSelecionada}
+              />
+            </Grid>
+
             {/* Autuado (Busca com Autocomplete) */}
             <Grid item xs={12} md={6}>
               <BuscaAutuadoField

@@ -33,14 +33,14 @@ from app.schemas.cadastro import (
 )
 from app.schemas.base import ResponseBase, ResponsePaginado, criar_resposta_paginada
 
-router = APIRouter(prefix="/cadastro", tags=["Cadastros"])
+router = APIRouter(prefix="/cadastro")
 
 
 # =====================================================
 # PESSOAS
 # =====================================================
 
-@router.post("/pessoas", response_model=PessoaResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/pessoas", response_model=PessoaResponse, status_code=status.HTTP_201_CREATED, tags=["Cadastro - Pessoas"])
 async def criar_pessoa(
     pessoa: PessoaCreate,
     db: Session = Depends(get_db),
@@ -57,7 +57,7 @@ async def criar_pessoa(
     return nova_pessoa
 
 
-@router.get("/pessoas")
+@router.get("/pessoas", tags=["Cadastro - Pessoas"])
 async def listar_pessoas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -83,7 +83,7 @@ async def listar_pessoas(
     return criar_resposta_paginada(dados=pessoas, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/pessoas/{pessoa_id}", response_model=PessoaComEnderecos)
+@router.get("/pessoas/{pessoa_id}", response_model=PessoaComEnderecos, tags=["Cadastro - Pessoas"])
 async def obter_pessoa(
     pessoa_id: UUID,
     db: Session = Depends(get_db),
@@ -100,7 +100,7 @@ async def obter_pessoa(
     return pessoa
 
 
-@router.put("/pessoas/{pessoa_id}", response_model=PessoaResponse)
+@router.put("/pessoas/{pessoa_id}", response_model=PessoaResponse, tags=["Cadastro - Pessoas"])
 async def atualizar_pessoa(
     pessoa_id: UUID,
     pessoa_update: PessoaUpdate,
@@ -118,7 +118,7 @@ async def atualizar_pessoa(
     return pessoa
 
 
-@router.delete("/pessoas/{pessoa_id}", response_model=ResponseBase)
+@router.delete("/pessoas/{pessoa_id}", response_model=ResponseBase, tags=["Cadastro - Pessoas"])
 async def excluir_pessoa(
     pessoa_id: UUID,
     db: Session = Depends(get_db),
@@ -138,7 +138,7 @@ async def excluir_pessoa(
     )
 
 
-@router.get("/pessoas/cpf/{cpf}", response_model=PessoaResponse)
+@router.get("/pessoas/cpf/{cpf}", response_model=PessoaResponse, tags=["Cadastro - Pessoas"])
 async def buscar_por_cpf(
     cpf: str,
     db: Session = Depends(get_db),
@@ -155,7 +155,7 @@ async def buscar_por_cpf(
     return pessoa
 
 
-@router.get("/pessoas/cnpj/{cnpj}", response_model=PessoaResponse)
+@router.get("/pessoas/cnpj/{cnpj}", response_model=PessoaResponse, tags=["Cadastro - Pessoas"])
 async def buscar_por_cnpj(
     cnpj: str,
     db: Session = Depends(get_db),
@@ -176,7 +176,7 @@ async def buscar_por_cnpj(
 # IMÓVEIS
 # =====================================================
 
-@router.post("/imoveis", response_model=ImovelResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/imoveis", response_model=ImovelResponse, status_code=status.HTTP_201_CREATED, tags=["Cadastro - Imóveis"])
 async def criar_imovel(
     imovel: ImovelCreate,
     db: Session = Depends(get_db),
@@ -193,7 +193,7 @@ async def criar_imovel(
     return novo_imovel
 
 
-@router.get("/imoveis")
+@router.get("/imoveis", tags=["Cadastro - Imóveis"])
 async def listar_imoveis(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -221,7 +221,7 @@ async def listar_imoveis(
     return criar_resposta_paginada(dados=imoveis, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/imoveis/{imovel_id}", response_model=ImovelCompleto)
+@router.get("/imoveis/{imovel_id}", response_model=ImovelCompleto, tags=["Cadastro - Imóveis"])
 async def obter_imovel(
     imovel_id: UUID,
     db: Session = Depends(get_db),
@@ -238,7 +238,7 @@ async def obter_imovel(
     return imovel
 
 
-@router.get("/imoveis/inscricao/{inscricao}", response_model=ImovelCompleto)
+@router.get("/imoveis/inscricao/{inscricao}", response_model=ImovelCompleto, tags=["Cadastro - Imóveis"])
 async def buscar_por_inscricao(
     inscricao: str,
     db: Session = Depends(get_db),
@@ -255,7 +255,7 @@ async def buscar_por_inscricao(
     return imovel
 
 
-@router.put("/imoveis/{imovel_id}", response_model=ImovelResponse)
+@router.put("/imoveis/{imovel_id}", response_model=ImovelResponse, tags=["Cadastro - Imóveis"])
 async def atualizar_imovel(
     imovel_id: UUID,
     imovel_update: ImovelUpdate,
@@ -273,7 +273,7 @@ async def atualizar_imovel(
     return imovel
 
 
-@router.delete("/imoveis/{imovel_id}", response_model=ResponseBase)
+@router.delete("/imoveis/{imovel_id}", response_model=ResponseBase, tags=["Cadastro - Imóveis"])
 async def excluir_imovel(
     imovel_id: UUID,
     db: Session = Depends(get_db),
@@ -297,7 +297,7 @@ async def excluir_imovel(
 # ESTABELECIMENTOS
 # =====================================================
 
-@router.post("/estabelecimentos", response_model=EstabelecimentoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/estabelecimentos", response_model=EstabelecimentoResponse, status_code=status.HTTP_201_CREATED, tags=["Cadastro - Estabelecimentos"])
 async def criar_estabelecimento(
     estabelecimento: EstabelecimentoCreate,
     db: Session = Depends(get_db),
@@ -314,7 +314,7 @@ async def criar_estabelecimento(
     return novo_estabelecimento
 
 
-@router.get("/estabelecimentos")
+@router.get("/estabelecimentos", tags=["Cadastro - Estabelecimentos"])
 async def listar_estabelecimentos(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -338,7 +338,7 @@ async def listar_estabelecimentos(
     return criar_resposta_paginada(dados=estabelecimentos, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse)
+@router.get("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse, tags=["Cadastro - Estabelecimentos"])
 async def obter_estabelecimento(
     estabelecimento_id: UUID,
     db: Session = Depends(get_db),
@@ -355,7 +355,7 @@ async def obter_estabelecimento(
     return estabelecimento
 
 
-@router.get("/estabelecimentos/ccm/{ccm}", response_model=EstabelecimentoResponse)
+@router.get("/estabelecimentos/ccm/{ccm}", response_model=EstabelecimentoResponse, tags=["Cadastro - Estabelecimentos"])
 async def buscar_por_ccm(
     ccm: str,
     db: Session = Depends(get_db),
@@ -372,7 +372,7 @@ async def buscar_por_ccm(
     return estabelecimento
 
 
-@router.put("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse)
+@router.put("/estabelecimentos/{estabelecimento_id}", response_model=EstabelecimentoResponse, tags=["Cadastro - Estabelecimentos"])
 async def atualizar_estabelecimento(
     estabelecimento_id: UUID,
     estabelecimento_update: EstabelecimentoUpdate,
@@ -390,7 +390,7 @@ async def atualizar_estabelecimento(
     return estabelecimento
 
 
-@router.delete("/estabelecimentos/{estabelecimento_id}", response_model=ResponseBase)
+@router.delete("/estabelecimentos/{estabelecimento_id}", response_model=ResponseBase, tags=["Cadastro - Estabelecimentos"])
 async def excluir_estabelecimento(
     estabelecimento_id: UUID,
     db: Session = Depends(get_db),
@@ -414,7 +414,7 @@ async def excluir_estabelecimento(
 # LOGRADOUROS
 # =====================================================
 
-@router.post("/logradouros", response_model=LogradouroResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/logradouros", response_model=LogradouroResponse, status_code=status.HTTP_201_CREATED, tags=["Cadastro - Logradouros"])
 async def criar_logradouro(
     logradouro: LogradouroCreate,
     db: Session = Depends(get_db),
@@ -431,7 +431,7 @@ async def criar_logradouro(
     return novo_logradouro
 
 
-@router.get("/logradouros")
+@router.get("/logradouros", tags=["Cadastro - Logradouros"])
 async def listar_logradouros(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
@@ -457,7 +457,7 @@ async def listar_logradouros(
     return criar_resposta_paginada(dados=logradouros, total=total, pagina=pagina, limite=limit)
 
 
-@router.get("/logradouros/{logradouro_id}", response_model=LogradouroResponse)
+@router.get("/logradouros/{logradouro_id}", response_model=LogradouroResponse, tags=["Cadastro - Logradouros"])
 async def obter_logradouro(
     logradouro_id: int,
     db: Session = Depends(get_db),
@@ -474,7 +474,7 @@ async def obter_logradouro(
     return logradouro
 
 
-@router.get("/logradouros/codigo/{codigo}", response_model=LogradouroResponse)
+@router.get("/logradouros/codigo/{codigo}", response_model=LogradouroResponse, tags=["Cadastro - Logradouros"])
 async def buscar_logradouro_por_codigo(
     codigo: str,
     db: Session = Depends(get_db),
@@ -491,7 +491,7 @@ async def buscar_logradouro_por_codigo(
     return logradouro
 
 
-@router.put("/logradouros/{logradouro_id}", response_model=LogradouroResponse)
+@router.put("/logradouros/{logradouro_id}", response_model=LogradouroResponse, tags=["Cadastro - Logradouros"])
 async def atualizar_logradouro(
     logradouro_id: int,
     logradouro_update: LogradouroCreate,
@@ -509,7 +509,7 @@ async def atualizar_logradouro(
     return logradouro
 
 
-@router.delete("/logradouros/{logradouro_id}", response_model=ResponseBase)
+@router.delete("/logradouros/{logradouro_id}", response_model=ResponseBase, tags=["Cadastro - Logradouros"])
 async def excluir_logradouro(
     logradouro_id: int,
     db: Session = Depends(get_db),
@@ -533,7 +533,7 @@ async def excluir_logradouro(
 # ENDEREÇOS
 # =====================================================
 
-@router.post("/pessoas/{pessoa_id}/enderecos", response_model=EnderecoResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/pessoas/{pessoa_id}/enderecos", response_model=EnderecoResponse, status_code=status.HTTP_201_CREATED, tags=["Cadastro - Pessoas"])
 async def adicionar_endereco(
     pessoa_id: UUID,
     endereco: EnderecoCreate,
@@ -551,7 +551,7 @@ async def adicionar_endereco(
     return novo_endereco
 
 
-@router.put("/enderecos/{endereco_id}", response_model=EnderecoResponse)
+@router.put("/enderecos/{endereco_id}", response_model=EnderecoResponse, tags=["Cadastro - Pessoas"])
 async def atualizar_endereco(
     endereco_id: int,
     endereco_update: EnderecoCreate,
@@ -569,7 +569,7 @@ async def atualizar_endereco(
     return endereco
 
 
-@router.delete("/enderecos/{endereco_id}", response_model=ResponseBase)
+@router.delete("/enderecos/{endereco_id}", response_model=ResponseBase, tags=["Cadastro - Pessoas"])
 async def excluir_endereco(
     endereco_id: int,
     db: Session = Depends(get_db),
@@ -589,7 +589,7 @@ async def excluir_endereco(
     )
 
 
-@router.put("/enderecos/{endereco_id}/principal", response_model=EnderecoResponse)
+@router.put("/enderecos/{endereco_id}/principal", response_model=EnderecoResponse, tags=["Cadastro - Pessoas"])
 async def definir_endereco_principal(
     endereco_id: int,
     db: Session = Depends(get_db),
@@ -610,7 +610,7 @@ async def definir_endereco_principal(
 # VALIDAÇÕES
 # =====================================================
 
-@router.get("/validar/cpf/{cpf}")
+@router.get("/validar/cpf/{cpf}", tags=["Cadastro - Pessoas"])
 async def validar_cpf(
     cpf: str,
     db: Session = Depends(get_db),
@@ -650,7 +650,7 @@ async def validar_cpf(
     }
 
 
-@router.get("/validar/cnpj/{cnpj}")
+@router.get("/validar/cnpj/{cnpj}", tags=["Cadastro - Pessoas"])
 async def validar_cnpj(
     cnpj: str,
     db: Session = Depends(get_db),
@@ -690,7 +690,7 @@ async def validar_cnpj(
     }
 
 
-@router.get("/validar/inscricao/{inscricao}")
+@router.get("/validar/inscricao/{inscricao}", tags=["Cadastro - Imóveis"])
 async def validar_inscricao_imobiliaria(
     inscricao: str,
     db: Session = Depends(get_db),
@@ -717,7 +717,7 @@ async def validar_inscricao_imobiliaria(
         }
 
 
-@router.get("/validar/ccm/{ccm}")
+@router.get("/validar/ccm/{ccm}", tags=["Cadastro - Estabelecimentos"])
 async def validar_ccm(
     ccm: str,
     db: Session = Depends(get_db),
@@ -748,7 +748,7 @@ async def validar_ccm(
 # CONSULTAS EXTERNAS
 # =====================================================
 
-@router.get("/cep/{cep}")
+@router.get("/cep/{cep}", tags=["Cadastro - Logradouros"])
 async def buscar_cep(
     cep: str,
     usuario: dict = Depends(get_current_user)

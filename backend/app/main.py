@@ -223,6 +223,7 @@ from app.api.portal import router as portal_router
 from app.api.fiscal import router as fiscal_router
 from app.api.parametros import router as parametros_router
 from app.api.arrecadacao import router as arrecadacao_router
+from app.api.pagamentos import router as pagamentos_router
 
 # Incluir routers na aplicação
 app.include_router(auth_router, prefix="/api/v1")
@@ -233,6 +234,7 @@ app.include_router(portal_router, prefix="/api/v1")
 app.include_router(fiscal_router, prefix="/api/v1")
 app.include_router(parametros_router, prefix="/api/v1")
 app.include_router(arrecadacao_router, prefix="/api/v1")
+app.include_router(pagamentos_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
