@@ -4,6 +4,7 @@ IPTU, ITBI, ISSQN, Isenções, PGV, TPC, Alíquotas
 """
 from uuid import UUID
 from typing import List
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
