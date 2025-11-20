@@ -3,9 +3,17 @@ import { Box } from '@mui/material'
 
 import { Layout } from './components/layout/Layout'
 import { useAuthStore } from './stores/authStore'
+import { useSessionTimeout } from './hooks/useSessionTimeout'
 
-// Pages
+// Auth Pages
 import { LoginPage } from './pages/auth/LoginPage'
+import { RecuperarSenhaPage } from './pages/auth/RecuperarSenhaPage'
+import { RedefinirSenhaPage } from './pages/auth/RedefinirSenhaPage'
+import { AlterarSenhaPage } from './pages/auth/AlterarSenhaPage'
+import { Configurar2FAPage } from './pages/auth/Configurar2FAPage'
+import { HistoricoLoginsPage } from './pages/auth/HistoricoLoginsPage'
+
+// Other Pages
 import { Dashboard } from './pages/Dashboard'
 import { PessoasListPage } from './pages/cadastro/PessoasListPage'
 import { PessoaDetalhesPage } from './pages/cadastro/PessoaDetalhesPage'
@@ -39,7 +47,16 @@ import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
 import { AutoDetalhesPage } from './pages/fiscal/AutoDetalhesPage'
 import { CatalogoInfracoesPage } from './pages/fiscal/CatalogoInfracoesPage'
 import { DashboardFiscalPage } from './pages/fiscal/DashboardFiscalPage'
-import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'  
+
+        
+import { RelatoriosFiscaisPage } from './pages/fiscal/RelatoriosFiscaisPage'
+import { ImportacaoDadosPage } from './pages/fiscal/ImportacaoDadosPage'
+import { NotificacoesFiscaisPage } from './pages/fiscal/NotificacoesFiscaisPage'
+import { ProcessosFiscaisPage } from './pages/fiscal/ProcessosFiscaisPage'
+
+        
+
+  
 import { ParametrosPage } from './pages/configuracoes/ParametrosPage'
 import { DashboardAdminPage } from './pages/admin/DashboardAdminPage'
 import { UsuariosPage } from './pages/admin/UsuariosPage'
@@ -50,10 +67,19 @@ import { ConfiguracoesSistemaPage } from './pages/admin/ConfiguracoesSistemaPage
 function App() {
   const { isAuthenticated } = useAuthStore()
 
+  // Habilitar timeout de sessão (30 minutos de inatividade)
+  useSessionTimeout({
+    timeout: 30 * 60 * 1000, // 30 minutos
+    warningTime: 2 * 60 * 1000, // Avisar 2 minutos antes
+    enabled: isAuthenticated,
+  })
+
   if (!isAuthenticated) {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenhaPage />} />
+        <Route path="/redefinir-senha/:token" element={<RedefinirSenhaPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -64,6 +90,11 @@ function App() {
       <Box sx={{ flexGrow: 1, p: 3 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+
+          {/* Auth (Rotas protegidas) */}
+          <Route path="/auth/alterar-senha" element={<AlterarSenhaPage />} />
+          <Route path="/auth/configurar-2fa" element={<Configurar2FAPage />} />
+          <Route path="/auth/historico-logins" element={<HistoricoLoginsPage />} />
 
           {/* Cadastros */}
           <Route path="/cadastro/pessoas" element={<PessoasListPage />} />
@@ -96,6 +127,9 @@ function App() {
           <Route path="/fiscal/autos/:id" element={<AutoDetalhesPage />} />
           <Route path="/fiscal/catalogo" element={<CatalogoInfracoesPage />} />
           <Route path="/fiscal/relatorios" element={<RelatoriosFiscaisPage />} />
+          <Route path="/fiscal/importacao" element={<ImportacaoDadosPage />} />
+          <Route path="/fiscal/notificacoes" element={<NotificacoesFiscaisPage />} />
+          <Route path="/fiscal/processos" element={<ProcessosFiscaisPage />} />
 
           {/* Configurações */}
           <Route path="/configuracoes/aliquotas" element={<AliquotasPage />} />
