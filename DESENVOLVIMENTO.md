@@ -114,7 +114,7 @@ cp .env.example .env
 # Editar .env com suas configurações
 
 # Rodar migrations (quando o banco estiver configurado)
-# alembic upgrade head
+alembic upgrade head
 
 # Rodar servidor de desenvolvimento
 uvicorn app.main:app --reload
