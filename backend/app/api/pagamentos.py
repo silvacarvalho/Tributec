@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.core.database import get_db
+from app.db.base import get_db
 from app.services.pagamento_service import PagamentoService
 from app.models.arrecadacao import StatusPagamento, TipoPagamento
 
