@@ -5,6 +5,8 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from app.db.base import get_db
+from app.core.security import get_current_user
+from app.models.admin import Usuario
 from app.services.arrecadacao_service import ArrecadacaoService
 from app.schemas.arrecadacao import (
     DashboardArrecadacaoResponse,
@@ -25,8 +27,6 @@ from app.schemas.arrecadacao import (
     TipoTributo,
     StatusPagamento,
 )
-from app.api.dependencies import get_current_user
-from app.models.usuario import Usuario
 from app.utils.logging import logger
 
 router = APIRouter(prefix="/arrecadacao", tags=["Arrecadação"])
